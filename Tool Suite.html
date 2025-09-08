@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDT Tool Suite</title>
+
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <script>
+        // Centralized Tailwind Config
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+            }
+        }
+    </script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Consolidated Styles -->
+    <style>
+        /* Base & Main App Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Start with hidden to manage tool layouts */
+        }
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            transition: flex-direction 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #toolbar {
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1), padding 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            height: 80px;
+            padding: 0 1rem;
+        }
+        #toolbar-content {
+            transition: flex-direction 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #app-container.tool-active {
+            flex-direction: row;
+        }
+        #app-container.tool-active #toolbar {
+            width: 80px;
+            height: 100vh;
+            padding: 1rem 0;
+        }
+        #app-container.tool-active #toolbar-content {
+            flex-direction: column;
+        }
+        #landing-content, .tool-container {
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tool-container {
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* Allow scrolling within tools */
+        }
+
+        /* TOFD Calculator Styles */
+        #tool-tofd input[type=range] {
+            -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: #e2e8f0; border-radius: 2px; outline: none;
+        }
+        html.dark #tool-tofd input[type=range] { background: #475569; }
+        #tool-tofd input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: #3b82f6; cursor: pointer; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        html.dark #tool-tofd input[type=range]::-webkit-slider-thumb { border-color: #1e293b; }
+        #tool-tofd .modal-overlay { transition: opacity 0.2s ease-in-out; }
+        #tool-tofd .modal-content { transition: all 0.2s ease-in-out; }
+        #tool-tofd .loader {
+            border: 4px solid #e5e7eb; border-top: 4px solid #3b82f6; border-radius: 50%; width: 36px; height: 36px; animation: spin 1s linear infinite;
+        }
+        html.dark #tool-tofd .loader { border-color: #4b5563; border-top-color: #60a5fa; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* C-Scan Visualizer Styles */
+        .file-input-button { transition: background-color 0.2s, box-shadow 0.2s; }
+        .file-input-button:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .progress-bar-inner { transition: width 0.3s ease-in-out; }
+
+        /* 3D Viewer Styles */
+        #tool-3dview { position: relative; } /* Needed for absolute UI */
+        #tool-3dview #ui-container {
+            position: absolute; top: 20px; left: 20px; z-index: 10; display: flex; flex-direction: column; gap: 1rem; max-height: calc(100vh - 120px); overflow-y: auto;
+        }
+        #tool-3dview .control-panel {
+             background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); padding: 1rem; border-radius: 0.75rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 280px;
+        }
+        #tool-3dview .panel-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        #tool-3dview .panel-content { margin-top: 1rem; transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 1000px; opacity: 1; overflow: hidden; }
+        #tool-3dview .panel-content.collapsed { max-height: 0; opacity: 0; margin-top: 0; }
+        #tool-3dview .arrow-icon { transition: transform 0.3s ease-in-out; }
+        #tool-3dview .arrow-icon.collapsed { transform: rotate(-90deg); }
+        #tool-3dview .upload-label, #tool-3dview .action-btn { cursor: pointer; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.5rem; font-weight: 500; transition: background-color 0.2s; display: inline-block; text-align: center; width: 100%; }
+        #tool-3dview .upload-label:hover, #tool-3dview .action-btn:hover { background-color: #4338ca; }
+        #tool-3dview .mode-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; border: 1px solid #d1d5db; background-color: white; transition: background-color 0.2s, color 0.2s; }
+        #tool-3dview .mode-btn.active { background-color: #3b82f6; color: white; border-color: #3b82f6; }
+        #tool-3dview .layer-item { display: flex; align-items: center; padding: 0.5rem; border: 2px solid transparent; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+        #tool-3dview .layer-item:hover { background-color: rgba(0,0,0,0.05); }
+        #tool-3dview .layer-item.selected { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
+    </style>
+</head>
+<body class="bg-black text-white">
+
+    <div id="app-container">
+        <header id="toolbar" class="bg-gray-900 flex-shrink-0 flex items-center justify-center z-20 relative">
+            <nav id="toolbar-content" class="flex items-center justify-center gap-4">
+                <!-- Tool icons will be generated here -->
+            </nav>
+             <button id="theme-toggle" class="absolute top-4 right-4 p-2 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
+                <svg id="theme-icon-light" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+        </header>
+
+        <main id="main-content" class="flex-grow flex flex-col items-center justify-center relative bg-gray-800">
+            <div id="landing-content" class="text-center p-8">
+                <h1 id="landing-title" class="text-4xl md:text-5xl font-bold mb-4 tracking-tight">NDT Tool Suite</h1>
+                <p id="landing-description" class="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto">
+                    A collection of powerful and easy-to-use tools for Non-Destructive Testing professionals. Select a tool to begin.
+                </p>
+            </div>
+            
+            <div id="tool-cscan" class="tool-container hidden"></div>
+            <div id="tool-tofd" class="tool-container hidden"></div>
+            <div id="tool-3dview" class="tool-container hidden"></div>
+        </main>
+    </div>
+
+<script type="module">
+// #################################################################################
+//                              TOOL MODULE: 3D Viewer
+// #################################################################################
+const toolModule3DView = (() => {
+    let container, scene, camera, renderer, orbitControls, transformControls, model, decalMaterial, directionalLight;
+    let layers = [], selectedLayer = null, needsRender = true, continuousRender = false, animationFrameId;
+    const MAX_LAYERS = 8;
+    let domElements = {};
+
+    const HTML = `
+        <div id="ui-container">
+            <div class="control-panel">
+                <div class="panel-header" data-target="upload-content"><h3 class="font-bold text-lg">File Management</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                <div id="upload-content" class="panel-content">
+                    <label for="model-upload" class="upload-label">Choose an .obj File</label><input type="file" id="model-upload" class="hidden" accept=".obj"><span id="model-file-name" class="text-sm text-gray-600 mt-1 block">Default Cylinder</span>
+                </div>
+            </div>
+            <div class="control-panel">
+                <div class="panel-header" data-target="layers-content"><h3 class="font-bold text-lg">Layers</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                <div id="layers-content" class="panel-content">
+                    <div id="layer-list" class="flex flex-col gap-2"></div>
+                    <button id="add-layer-btn" class="action-btn mt-4">Add New Layer</button><input type="file" id="texture-upload" class="hidden" accept="image/png">
+                </div>
+            </div>
+            <div id="controls-wrapper" class="hidden">
+                 <div class="control-panel">
+                     <div class="panel-header" data-target="gizmo-content"><h3 class="font-bold text-lg">Gizmo Mode</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    <div id="gizmo-content" class="panel-content flex gap-2">
+                        <button id="translate-btn" class="mode-btn active">Translate</button>
+                        <button id="rotate-btn" class="mode-btn">Rotate</button>
+                    </div>
+                </div>
+                <div class="control-panel">
+                     <div class="panel-header" data-target="lighting-content"><h3 class="font-bold text-lg">Lighting Controls</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    <div id="lighting-content" class="panel-content">
+                        <div><label for="light-intensity">Brightness</label><input type="range" id="light-intensity" min="0" max="3" step="0.1" value="1.5"></div>
+                        <div class="mt-2"><label for="light-azimuth">Azimuth</label><input type="range" id="light-azimuth" min="0" max="360" step="1" value="45"></div>
+                        <div class="mt-2"><label for="light-elevation">Elevation</label><input type="range" id="light-elevation" min="0" max="180" step="1" value="45"></div>
+                        <div class="mt-2"><label for="light-distance">Distance</label><input type="range" id="light-distance" min="20" max="500" step="1" value="500"></div>
+                    </div>
+                </div>
+                <div class="control-panel">
+                    <div class="panel-header" data-target="texture-content"><h3 class="font-bold text-lg">Texture Controls</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                    <div id="texture-content" class="panel-content">
+                         <div><label class="mb-1">Projection Axis</label><div class="flex gap-2"><button id="axis-x-btn" class="mode-btn w-1/3">X</button><button id="axis-y-btn" class="mode-btn w-1/3">Y</button><button id="axis-z-btn" class="mode-btn w-1/3 active">Z</button></div></div>
+                        <div class="mt-2"><label for="offset-u">Offset (Circumference)</label><input type="range" id="offset-u" min="-1" max="1" step="0.01" value="0"></div>
+                         <div class="mt-2"><label for="offset-v">Offset (Length)</label><input type="range" id="offset-v" min="-1" max="1" step="0.01" value="0"></div>
+                        <div class="mt-2"><label for="uniform-scale">Scale (Coverage)</label><input type="range" id="uniform-scale" min="0.01" max="2" step="0.01" value="1"></div>
+                        <div class="mt-2"><label for="rotation">Rotation</label><input type="range" id="rotation" min="-3.141" max="3.141" step="0.01" value="0"></div>
+                         <div class="mt-4 flex gap-2"><button id="flip-x-btn" class="mode-btn w-1/2">Flip H</button><button id="flip-y-btn" class="mode-btn w-1/2">Flip V</button></div>
+                        <div class="mt-2"><label for="clamp-min">Projection Start</label><input type="range" id="clamp-min" min="-0.5" max="1.5" step="0.01" value="0.15"></div>
+                        <div class="mt-2"><label for="clamp-max">Projection End</label><input type="range" id="clamp-max" min="-0.5" max="1.5" step="0.01" value="0.85"></div>
+                        <button id="reset-controls-btn" class="w-full mt-4 bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors">Reset All</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="renderer-container" class="w-full h-full"></div>
+        <div id="message-box" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 bg-red-500 text-white py-2 px-5 rounded-lg shadow-xl transition-opacity duration-300"><p id="message-text"></p></div>
+    `;
+
+    // Import THREE.js modules
+    let THREE, OrbitControls, TransformControls, OBJLoader;
+    async function importThree() {
+        THREE = await import('three');
+        ({ OrbitControls } = await import('three/addons/controls/OrbitControls.js'));
+        ({ TransformControls } = await import('three/addons/controls/TransformControls.js'));
+        ({ OBJLoader } = await import('three/addons/loaders/OBJLoader.js'));
+    }
+    
+    class Layer {
+        constructor(texture, fileName) { this.id = THREE.MathUtils.generateUUID(); this.texture = texture; this.fileName = fileName; this.visible = true; this.transformTarget = new THREE.Object3D(); this.uniforms = { uScale: new THREE.Vector2(1, 1), uOffset: new THREE.Vector2(0, 0), uRotation: 0.0, uFlip: new THREE.Vector2(1, 1), uProjectionAxis: new THREE.Vector3(0, 0, 1), uClamp: new THREE.Vector2(0, 1), }; this.aspectCorrectionFactor = 1.0; this.needsUpdate = true; }
+    }
+    const vertexShader = `varying vec3 vWorldPosition; varying vec3 vNormal; void main() { vec4 worldPosition = modelMatrix * vec4(position, 1.0); vWorldPosition = worldPosition.xyz; vNormal = normalize(normalMatrix * normal); gl_Position = projectionMatrix * viewMatrix * worldPosition; }`;
+    const fragmentShader = `#define MAX_LAYERS ${MAX_LAYERS}
+        uniform sampler2D uDecalTextures[MAX_LAYERS]; uniform vec3 uBaseColor; uniform int uLayerCount; uniform vec2 uScales[MAX_LAYERS]; uniform vec2 uOffsets[MAX_LAYERS]; uniform float uRotations[MAX_LAYERS]; uniform vec2 uFlips[MAX_LAYERS]; uniform vec3 uProjectionAxes[MAX_LAYERS]; uniform vec2 uClamps[MAX_LAYERS]; uniform float uVisibles[MAX_LAYERS]; uniform vec3 uLightPosition; uniform float uLightIntensity; uniform vec3 uModelMin; uniform vec3 uModelSize; varying vec3 vWorldPosition; varying vec3 vNormal; const float PI = 3.14159265359;
+        void main() { vec3 normal = normalize(vNormal); if (!gl_FrontFacing) normal = -normal; vec3 finalColor = uBaseColor;
+        for (int i = 0; i < MAX_LAYERS; ++i) { if (i >= uLayerCount || uVisibles[i] < 0.5) continue; float circumferentialAngle, vPos; vec3 projAxis = uProjectionAxes[i];
+        if (projAxis.x > 0.5) { circumferentialAngle = atan(vWorldPosition.z, vWorldPosition.y) / (2.0 * PI) + 0.5; vPos = (vWorldPosition.x - uModelMin.x) / uModelSize.x; }
+        else if (projAxis.y > 0.5) { circumferentialAngle = atan(vWorldPosition.x, vWorldPosition.z) / (2.0 * PI) + 0.5; vPos = (vWorldPosition.y - uModelMin.y) / uModelSize.y; }
+        else { circumferentialAngle = atan(vWorldPosition.y, vWorldPosition.x) / (2.0 * PI) + 0.5; vPos = (vWorldPosition.z - uModelMin.z) / uModelSize.z; }
+        float coverage = uScales[i].x, center = uOffsets[i].x + 0.5, startAngle = center - coverage / 2.0, endAngle = center + coverage / 2.0; bool inCircumferentialRange = false; float remappedU = 0.0;
+        if (startAngle < 0.0) { if (circumferentialAngle > startAngle + 1.0 || circumferentialAngle < endAngle) { inCircumferentialRange = true; remappedU = (circumferentialAngle > endAngle) ? (circumferentialAngle - 1.0 - startAngle) / coverage : (circumferentialAngle - startAngle) / coverage; } }
+        else if (endAngle > 1.0) { if (circumferentialAngle > startAngle || circumferentialAngle < endAngle - 1.0) { inCircumferentialRange = true; remappedU = (circumferentialAngle < startAngle) ? (circumferentialAngle + 1.0 - startAngle) / coverage : (circumferentialAngle - startAngle) / coverage; } }
+        else { if (circumferentialAngle > startAngle && circumferentialAngle < endAngle) { inCircumferentialRange = true; remappedU = (circumferentialAngle - startAngle) / coverage; } }
+        if (vPos > uClamps[i].x && vPos < uClamps[i].y && inCircumferentialRange) { vec2 uv = vec2(remappedU, (vPos + uOffsets[i].y) * uScales[i].y); uv = (uv - 0.5) * uFlips[i] + 0.5; mat2 rotMat = mat2(cos(uRotations[i]), -sin(uRotations[i]), sin(uRotations[i]), cos(uRotations[i])); uv = rotMat * (uv - 0.5) + 0.5;
+        if (uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0) { vec4 decalColor = vec4(0.0);
+        if (i == 0) decalColor = texture2D(uDecalTextures[0], uv); else if (i == 1) decalColor = texture2D(uDecalTextures[1], uv); else if (i == 2) decalColor = texture2D(uDecalTextures[2], uv); else if (i == 3) decalColor = texture2D(uDecalTextures[3], uv); else if (i == 4) decalColor = texture2D(uDecalTextures[4], uv); else if (i == 5) decalColor = texture2D(uDecalTextures[5], uv); else if (i == 6) decalColor = texture2D(uDecalTextures[6], uv); else if (i == 7) decalColor = texture2D(uDecalTextures[7], uv);
+        if (decalColor.a > 0.1) { finalColor = mix(finalColor, decalColor.rgb, decalColor.a); } } } }
+        float ambientStrength = 0.5; vec3 ambient = ambientStrength * vec3(1.0); vec3 lightDir = normalize(uLightPosition - vWorldPosition); float diff = max(dot(normal, lightDir), 0.0); vec3 diffuse = diff * vec3(1.0) * uLightIntensity; vec3 lighting = ambient + diffuse; gl_FragColor = vec4(finalColor * lighting, 1.0); }`;
+
+    function cacheDomElements() {
+        const query = (selector) => container.querySelector(selector);
+        domElements = {
+            rendererContainer: query('#renderer-container'), modelUploadInput: query('#model-upload'), textureUploadInput: query('#texture-upload'), modelFileNameSpan: query('#model-file-name'),
+            messageBox: query('#message-box'), messageText: query('#message-text'), layerList: query('#layer-list'), addLayerBtn: query('#add-layer-btn'), controlsWrapper: query('#controls-wrapper'),
+            translateBtn: query('#translate-btn'), rotateBtn: query('#rotate-btn'), axisXBtn: query('#axis-x-btn'), axisYBtn: query('#axis-y-btn'), axisZBtn: query('#axis-z-btn'),
+            offsetUSlider: query('#offset-u'), offsetVSlider: query('#offset-v'), uniformScaleSlider: query('#uniform-scale'), rotationSlider: query('#rotation'),
+            flipXBtn: query('#flip-x-btn'), flipYBtn: query('#flip-y-btn'), clampMinSlider: query('#clamp-min'), clampMaxSlider: query('#clamp-max'), resetControlsBtn: query('#reset-controls-btn'),
+            lightIntensitySlider: query('#light-intensity'), lightAzimuthSlider: query('#light-azimuth'), lightElevationSlider: query('#light-elevation'), lightDistanceSlider: query('#light-distance'), 
+            panelHeaders: container.querySelectorAll('.panel-header')
+        };
+    }
+
+    function doInit() {
+        scene = new THREE.Scene(); scene.background = new THREE.Color(0xf0f0f0);
+        const { rendererContainer } = domElements;
+        camera = new THREE.PerspectiveCamera(75, rendererContainer.clientWidth / rendererContainer.clientHeight, 0.1, 1000); camera.position.set(0, 15, 50);
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(rendererContainer.clientWidth, rendererContainer.clientHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace;
+        rendererContainer.appendChild(renderer.domElement);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2)); directionalLight = new THREE.DirectionalLight(0xffffff, 1.5); scene.add(directionalLight);
+        orbitControls = new OrbitControls(camera, renderer.domElement); orbitControls.enableDamping = false;
+        transformControls = new TransformControls(camera, renderer.domElement); scene.add(transformControls);
+        createDecalMaterial(); loadDefaultModel(); addEventListeners(); updateLighting(); animate();
+    }
+    function createDecalMaterial() {
+        const uniforms = {
+            uBaseColor: { value: new THREE.Color(0x888888) }, uLayerCount: { value: 0 }, uLightPosition: { value: new THREE.Vector3() }, uLightIntensity: { value: 1.5 },
+            uModelMin: { value: new THREE.Vector3(0, 0, 0) }, uModelSize: { value: new THREE.Vector3(1, 1, 1) }, uDecalTextures: { value: [] }, uScales: { value: [] },
+            uOffsets: { value: [] }, uRotations: { value: [] }, uFlips: { value: [] }, uProjectionAxes: { value: [] }, uClamps: { value: [] }, uVisibles: { value: [] }
+        };
+        for (let i = 0; i < MAX_LAYERS; i++) {
+            const canvas = document.createElement('canvas'); canvas.width = 1; canvas.height = 1; const ctx = canvas.getContext('2d'); ctx.fillStyle = 'rgba(0,0,0,0)'; ctx.fillRect(0, 0, 1, 1);
+            uniforms.uDecalTextures.value.push(new THREE.CanvasTexture(canvas)); uniforms.uScales.value.push(new THREE.Vector2(1, 1)); uniforms.uOffsets.value.push(new THREE.Vector2(0, 0));
+            uniforms.uRotations.value.push(0.0); uniforms.uFlips.value.push(new THREE.Vector2(1, 1)); uniforms.uProjectionAxes.value.push(new THREE.Vector3(0, 0, 1));
+            uniforms.uClamps.value.push(new THREE.Vector2(0, 1)); uniforms.uVisibles.value.push(0.0);
+        }
+        decalMaterial = new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide });
+    }
+    function loadDefaultModel() { const geometry = new THREE.CylinderGeometry(10, 10, 30, 32); setModel(new THREE.Mesh(geometry, decalMaterial)); }
+    function setModel(newModel) {
+        if (model) scene.remove(model); model = newModel; scene.add(model);
+        const box = new THREE.Box3().setFromObject(model); const size = box.getSize(new THREE.Vector3()); const center = box.getCenter(new THREE.Vector3());
+        decalMaterial.uniforms.uModelSize.value = size; decalMaterial.uniforms.uModelMin.value = box.min; model.position.sub(center);
+        const maxDim = Math.max(size.x, size.y, size.z); const fov = camera.fov * (Math.PI / 180);
+        camera.position.z = center.z + Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5; camera.far = camera.position.z + maxDim * 2; camera.updateProjectionMatrix();
+        orbitControls.target.copy(center); orbitControls.update();
+        layers.forEach(layer => { recalculateAspectRatio(layer); layer.needsUpdate = true; }); batchUpdateShaderUniforms(); requestRender();
+    }
+    function handleModelUpload(event) {
+        const file = event.target.files[0]; if (!file) return; domElements.modelFileNameSpan.textContent = file.name; const reader = new FileReader();
+        reader.onload = (e) => { const object = new OBJLoader().parse(e.target.result); object.traverse(child => { if (child.isMesh) child.material = decalMaterial; }); setModel(object); }; reader.readAsText(file);
+    }
+    function handleTextureUpload(event) {
+        const file = event.target.files[0]; if (!file || layers.length >= MAX_LAYERS) { if (layers.length >= MAX_LAYERS) showMessage(`Maximum of ${MAX_LAYERS} layers reached.`, 'error'); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => { const textureLoader = new THREE.TextureLoader(); textureLoader.load(e.target.result, (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace; texture.minFilter = THREE.LinearFilter; texture.magFilter = THREE.LinearFilter; texture.wrapS = THREE.ClampToEdgeWrapping; texture.wrapT = THREE.ClampToEdgeWrapping; texture.generateMipmaps = false;
+            const newLayer = new Layer(texture, file.name); layers.push(newLayer); recalculateAspectRatio(newLayer); selectLayer(newLayer); updateLayerList(); batchUpdateShaderUniforms(); requestRender(); });
+        }; reader.readAsDataURL(file);
+    }
+    function selectLayer(layer) {
+        if (selectedLayer === layer) return; selectedLayer = layer;
+        transformControls.attach(layer.transformTarget); scene.add(layer.transformTarget);
+        updateControlsToLayerState(); updateLayerList(); domElements.controlsWrapper.classList.remove('hidden'); requestRender();
+    }
+    function deleteLayer(layerToDelete) {
+        const index = layers.findIndex(l => l.id === layerToDelete.id); if (index === -1) return;
+        layers.splice(index, 1);
+        if (selectedLayer === layerToDelete) {
+            selectedLayer = layers.length > 0 ? layers[Math.max(0, index - 1)] : null;
+            if (selectedLayer) { selectLayer(selectedLayer); } else { transformControls.detach(); domElements.controlsWrapper.classList.add('hidden'); }
+        }
+        updateLayerList(); batchUpdateShaderUniforms(); requestRender();
+    }
+    function updateLayerList() {
+        domElements.layerList.innerHTML = ''; layers.forEach(layer => {
+            const item = document.createElement('div'); item.className = 'layer-item'; if (layer === selectedLayer) item.classList.add('selected');
+            item.innerHTML = `<span class="flex-grow truncate">${layer.fileName}</span><button data-action="visible" class="p-1 rounded-md hover:bg-gray-300">${layer.visible ? '👁️' : '🙈'}</button><button data-action="delete" class="p-1 rounded-md hover:bg-red-200 text-red-600">❌</button>`;
+            item.addEventListener('click', (e) => !e.target.dataset.action && selectLayer(layer));
+            item.querySelector('[data-action="visible"]').addEventListener('click', () => { layer.visible = !layer.visible; layer.needsUpdate = true; batchUpdateShaderUniforms(); updateLayerList(); requestRender(); });
+            item.querySelector('[data-action="delete"]').addEventListener('click', () => deleteLayer(layer));
+            domElements.layerList.appendChild(item);
+        });
+    }
+    function updateControlsToLayerState() {
+        if (!selectedLayer) return; const { uniforms } = selectedLayer; const { offsetUSlider, offsetVSlider, uniformScaleSlider, rotationSlider, clampMinSlider, clampMaxSlider, flipXBtn, flipYBtn, axisXBtn, axisYBtn, axisZBtn } = domElements;
+        offsetUSlider.value = uniforms.uOffset.x; offsetVSlider.value = uniforms.uOffset.y; uniformScaleSlider.value = uniforms.uScale.x; rotationSlider.value = uniforms.uRotation;
+        clampMinSlider.value = uniforms.uClamp.x; clampMaxSlider.value = uniforms.uClamp.y; flipXBtn.classList.toggle('active', uniforms.uFlip.x < 0); flipYBtn.classList.toggle('active', uniforms.uFlip.y < 0);
+        const axis = uniforms.uProjectionAxis; axisXBtn.classList.toggle('active', axis.x > 0.5); axisYBtn.classList.toggle('active', axis.y > 0.5); axisZBtn.classList.toggle('active', axis.z > 0.5);
+    }
+    function recalculateAspectRatio(layer) {
+        if (!layer || !layer.texture || !layer.texture.image.height) return;
+        const textureAR = layer.texture.image.width / layer.texture.image.height; const modelSize = decalMaterial.uniforms.uModelSize.value; const projAxis = layer.uniforms.uProjectionAxis; let modelHeight, modelDiameter;
+        if (projAxis.x > 0.5) { modelHeight = modelSize.x; modelDiameter = (modelSize.y + modelSize.z) / 2; }
+        else if (projAxis.y > 0.5) { modelHeight = modelSize.y; modelDiameter = (modelSize.x + modelSize.z) / 2; }
+        else { modelHeight = modelSize.z; modelDiameter = (modelSize.x + modelSize.y) / 2; }
+        if (modelHeight > 0 && modelDiameter > 0) { const modelAR = (Math.PI * modelDiameter) / modelHeight; layer.aspectCorrectionFactor = textureAR / modelAR; }
+        else { layer.aspectCorrectionFactor = 1.0; }
+        domElements.uniformScaleSlider.value = layer.aspectCorrectionFactor;
+    }
+    function batchUpdateShaderUniforms() {
+        decalMaterial.uniforms.uLayerCount.value = layers.length;
+        for (let i = 0; i < layers.length; i++) {
+            const layer = layers[i]; if (layer.needsUpdate) {
+                decalMaterial.uniforms.uDecalTextures.value[i] = layer.texture; decalMaterial.uniforms.uScales.value[i].copy(layer.uniforms.uScale); decalMaterial.uniforms.uOffsets.value[i].copy(layer.uniforms.uOffset);
+                decalMaterial.uniforms.uRotations.value[i] = layer.uniforms.uRotation; decalMaterial.uniforms.uFlips.value[i].copy(layer.uniforms.uFlip);
+                decalMaterial.uniforms.uProjectionAxes.value[i].copy(layer.uniforms.uProjectionAxis); decalMaterial.uniforms.uClamps.value[i].copy(layer.uniforms.uClamp);
+                decalMaterial.uniforms.uVisibles.value[i] = layer.visible ? 1.0 : 0.0; layer.needsUpdate = false;
+            }
+        }
+        for (let i = layers.length; i < MAX_LAYERS; i++) { decalMaterial.uniforms.uVisibles.value[i] = 0.0; }
+    }
+    function requestRender() { needsRender = true; }
+    let sliderUpdateFrame = null;
+    function throttledSliderUpdate() {
+        if (sliderUpdateFrame) return; sliderUpdateFrame = requestAnimationFrame(() => {
+            if (!selectedLayer) { sliderUpdateFrame = null; return; }
+            const layer = selectedLayer;
+            layer.uniforms.uOffset.set(parseFloat(domElements.offsetUSlider.value), parseFloat(domElements.offsetVSlider.value));
+            layer.uniforms.uRotation = parseFloat(domElements.rotationSlider.value);
+            layer.uniforms.uClamp.set(parseFloat(domElements.clampMinSlider.value), parseFloat(domElements.clampMaxSlider.value));
+            const coverage = parseFloat(domElements.uniformScaleSlider.value); const safeCoverage = Math.max(coverage, 0.0001); const tiling = layer.aspectCorrectionFactor / safeCoverage;
+            layer.uniforms.uScale.set(coverage, tiling);
+            layer.transformTarget.position.set(layer.uniforms.uOffset.x * 100, layer.uniforms.uOffset.y * 100, 0); layer.transformTarget.rotation.z = layer.uniforms.uRotation;
+            layer.needsUpdate = true; batchUpdateShaderUniforms(); requestRender(); sliderUpdateFrame = null;
+        });
+    }
+    function addEventListeners() {
+        window.addEventListener('resize', onWindowResize);
+        orbitControls.addEventListener('change', requestRender);
+        domElements.modelUploadInput.addEventListener('change', handleModelUpload); domElements.textureUploadInput.addEventListener('change', handleTextureUpload);
+        domElements.addLayerBtn.addEventListener('click', () => domElements.textureUploadInput.click());
+        transformControls.addEventListener('objectChange', requestRender);
+        transformControls.addEventListener('dragging-changed', (event) => { orbitControls.enabled = !event.value; continuousRender = event.value; });
+        domElements.translateBtn.addEventListener('click', () => { transformControls.setMode('translate'); domElements.translateBtn.classList.add('active'); domElements.rotateBtn.classList.remove('active'); requestRender(); });
+        domElements.rotateBtn.addEventListener('click', () => { transformControls.setMode('rotate'); domElements.rotateBtn.classList.add('active'); domElements.translateBtn.classList.remove('active'); requestRender(); });
+        [domElements.offsetUSlider, domElements.offsetVSlider, domElements.uniformScaleSlider, domElements.rotationSlider, domElements.clampMinSlider, domElements.clampMaxSlider].forEach(el => { el.addEventListener('input', throttledSliderUpdate); el.addEventListener('mousedown', () => continuousRender = true); el.addEventListener('mouseup', () => continuousRender = false); });
+        [domElements.flipXBtn, domElements.flipYBtn].forEach(el => { el.addEventListener('click', () => { if (!selectedLayer) return; el.classList.toggle('active'); selectedLayer.uniforms.uFlip.set(domElements.flipXBtn.classList.contains('active') ? -1 : 1, domElements.flipYBtn.classList.contains('active') ? -1 : 1); selectedLayer.needsUpdate = true; batchUpdateShaderUniforms(); requestRender(); }); });
+        [domElements.axisXBtn, domElements.axisYBtn, domElements.axisZBtn].forEach(el => { el.addEventListener('click', () => { if (!selectedLayer) return; [domElements.axisXBtn, domElements.axisYBtn, domElements.axisZBtn].forEach(btn => btn.classList.remove('active')); el.classList.add('active'); const axis = el.id === 'axis-x-btn' ? new THREE.Vector3(1, 0, 0) : el.id === 'axis-y-btn' ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1); selectedLayer.uniforms.uProjectionAxis.copy(axis); recalculateAspectRatio(selectedLayer); updateControlsToLayerState(); selectedLayer.needsUpdate = true; batchUpdateShaderUniforms(); requestRender(); }); });
+        [domElements.lightIntensitySlider, domElements.lightAzimuthSlider, domElements.lightElevationSlider, domElements.lightDistanceSlider].forEach(el => { el.addEventListener('input', () => { updateLighting(); requestRender(); }); el.addEventListener('mousedown', () => continuousRender = true); el.addEventListener('mouseup', () => continuousRender = false); });
+        domElements.resetControlsBtn.addEventListener('click', () => { if (!selectedLayer) return; selectedLayer.uniforms.uOffset.set(0, 0); selectedLayer.uniforms.uRotation = 0; selectedLayer.uniforms.uClamp.set(0, 1); selectedLayer.uniforms.uFlip.set(1, 1); recalculateAspectRatio(selectedLayer); selectedLayer.transformTarget.position.set(0, 0, 0); selectedLayer.transformTarget.rotation.z = 0; updateControlsToLayerState(); selectedLayer.needsUpdate = true; batchUpdateShaderUniforms(); requestRender(); });
+        domElements.panelHeaders.forEach(header => { header.addEventListener('click', () => { const content = container.querySelector('#' + header.dataset.target); const arrow = header.querySelector('.arrow-icon'); content.classList.toggle('collapsed'); arrow.classList.toggle('collapsed'); }); });
+    }
+    function updateLighting() {
+        const intensity = parseFloat(domElements.lightIntensitySlider.value); const azimuth = THREE.MathUtils.degToRad(parseFloat(domElements.lightAzimuthSlider.value)); const elevation = THREE.MathUtils.degToRad(parseFloat(domElements.lightElevationSlider.value)); const distance = parseFloat(domElements.lightDistanceSlider.value);
+        directionalLight.intensity = intensity; directionalLight.position.set( distance * Math.sin(elevation) * Math.cos(azimuth), distance * Math.cos(elevation), distance * Math.sin(elevation) * Math.sin(azimuth) );
+        decalMaterial.uniforms.uLightIntensity.value = intensity; decalMaterial.uniforms.uLightPosition.value.copy(directionalLight.position);
+    }
+    function onWindowResize() {
+        if (!renderer || !camera || !domElements.rendererContainer) return;
+        camera.aspect = domElements.rendererContainer.clientWidth / domElements.rendererContainer.clientHeight;
+        camera.updateProjectionMatrix(); renderer.setSize(domElements.rendererContainer.clientWidth, domElements.rendererContainer.clientHeight); requestRender();
+    }
+    function showMessage(text, type = 'info') {
+        domElements.messageText.textContent = text;
+        domElements.messageBox.className = `fixed bottom-5 left-1/2 -translate-x-1/2 text-white py-2 px-5 rounded-lg shadow-xl transition-opacity duration-300 opacity-100 ${type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+        setTimeout(() => { domElements.messageBox.classList.replace('opacity-100', 'opacity-0'); }, 3000);
+    }
+    function animate() {
+        animationFrameId = requestAnimationFrame(animate);
+        if (continuousRender) needsRender = true;
+        if (needsRender && renderer && scene && camera) { renderer.render(scene, camera); needsRender = false; }
+    }
+    return {
+        init: async (toolContainer) => {
+            container = toolContainer; container.innerHTML = HTML; container.style.overflow = 'hidden'; document.body.style.backgroundColor = '#f0f0f0';
+            await importThree(); cacheDomElements(); doInit();
+        },
+        destroy: () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener('resize', onWindowResize);
+            if (orbitControls) orbitControls.dispose();
+            if (transformControls) transformControls.dispose();
+            if(scene) {
+                scene.traverse(object => {
+                    if (object.geometry) object.geometry.dispose();
+                    if (object.material) {
+                        if (Array.isArray(object.material)) { object.material.forEach(material => material.dispose()); } 
+                        else { object.material.dispose(); }
+                    }
+                });
+            }
+            if(renderer) {
+                renderer.dispose();
+                if (renderer.domElement.parentElement) {
+                    renderer.domElement.parentElement.removeChild(renderer.domElement);
+                }
+            }
+            container.innerHTML = ''; container.style.overflow = 'auto'; document.body.style.backgroundColor = '';
+        }
+    };
+})();
+
+
+// #################################################################################
+//                            TOOL MODULE: C-Scan Visualizer
+// #################################################################################
+const toolModuleCScan = (() => {
+    let container, dom = {}, processedScans = [], currentScanData = null, compositeWorker = null, isShowingComposite = false;
+    const HTML = `
+    <div class="container mx-auto p-4 md:p-8 h-full flex flex-col dark:bg-gray-900 text-gray-800 dark:text-gray-200">
+        <header class="bg-white dark:bg-gray-800 shadow-md rounded-xl p-6 mb-8 flex justify-between items-center flex-shrink-0">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Phased Array C-Scan Visualizer</h1>
+                <p class="mt-2 text-gray-600 dark:text-gray-400">Upload a C-Scan data file (.txt or .csv) to generate an interactive corrosion heatmap.</p>
+            </div>
+        </header>
+        <main class="bg-white dark:bg-gray-800 shadow-md rounded-xl p-6 flex-grow flex flex-col overflow-hidden">
+            <div id="upload-section" class="text-center border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 md:p-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                <h2 class="mt-4 text-xl font-semibold text-gray-900 dark:text-white">Upload C-Scan file(s)</h2>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Drag and drop or click to select one or more files.</p>
+                <input type="file" id="file-input" class="hidden" accept=".txt,.csv" multiple>
+                <button id="upload-button" class="mt-6 file-input-button bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700">Select Files</button>
+            </div>
+            <div id="status-message" class="hidden mt-4 text-center p-4 rounded-lg"></div>
+            <div id="progress-container" class="hidden mt-4 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div id="progress-bar" class="progress-bar-inner bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div></div>
+            <div id="file-management-section" class="hidden mt-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg shadow-inner">
+                <div class="flex flex-wrap justify-between items-center border-b border-gray-200 dark:border-gray-600 pb-2 mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Processed Files</h3>
+                    <div class="flex gap-2 mt-2 md:mt-0">
+                        <button id="composite-button" class="file-input-button bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700">Generate Composite</button>
+                        <button id="export-button" class="file-input-button bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-purple-700 hidden">Export Image</button>
+                        <button id="export-clean-button" class="file-input-button bg-teal-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-teal-700 hidden">Export Heatmap Only</button>
+                    </div>
+                </div>
+                <div id="file-list" class="text-sm text-gray-700 dark:text-gray-300"></div>
+            </div>
+            <div id="controls-section" class="hidden mt-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg shadow-inner">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div><label for="min-thickness" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Min Thickness (mm)</label><input type="number" id="min-thickness" step="0.1" class="mt-1 block w-full rounded-md dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-700 dark:text-white"></div>
+                    <div><label for="max-thickness" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Max Thickness (mm)</label><input type="number" id="max-thickness" step="0.1" class="mt-1 block w-full rounded-md dark:border-gray-600 shadow-sm sm:text-sm dark:bg-gray-700 dark:text-white"></div>
+                    <button id="update-button" class="file-input-button bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 w-full md:w-auto">Update View</button>
+                </div>
+            </div>
+            <div id="visualization-section" class="hidden mt-8 w-full flex-grow"><div id="plot-container" class="w-full h-full"></div></div>
+            <div id="metadata-section" class="hidden mt-8 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg shadow-inner"><h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-2 mb-4 dark:text-white">Scan Metadata</h3><div id="metadata-content" class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm"></div></div>
+        </main>
+    </div>`;
+    const customColorscale = [ [0.0, 'rgb(127, 0, 0)'], [0.125, 'rgb(255, 0, 0)'], [0.25, 'rgb(255, 127, 0)'], [0.375, 'rgb(255, 255, 0)'], [0.5, 'rgb(127, 255, 127)'], [0.625, 'rgb(0, 255, 255)'], [0.75, 'rgb(0, 0, 255)'], [0.875, 'rgb(0, 0, 191)'], [1.0, 'rgb(0, 0, 127)'] ];
+    function cacheDom() { const q = (s) => container.querySelector(s); dom = { uploadButton: q('#upload-button'), fileInput: q('#file-input'), uploadSection: q('#upload-section'), statusMessage: q('#status-message'), visualizationSection: q('#visualization-section'), plotContainer: q('#plot-container'), metadataSection: q('#metadata-section'), metadataContent: q('#metadata-content'), controlsSection: q('#controls-section'), minThicknessInput: q('#min-thickness'), maxThicknessInput: q('#max-thickness'), updateButton: q('#update-button'), fileManagementSection: q('#file-management-section'), fileListContainer: q('#file-list'), compositeButton: q('#composite-button'), exportButton: q('#export-button'), exportCleanButton: q('#export-clean-button'), progressContainer: q('#progress-container'), progressBar: q('#progress-bar')}; }
+    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+    function handleDrop(e) { dom.uploadSection.classList.remove('border-blue-500', 'bg-blue-50', 'dark:bg-blue-900/50'); const dt = e.dataTransfer; if (dt.files.length > 0) handleFiles(dt.files); }
+    function showStatus(message, isError = false) { dom.statusMessage.textContent = message; dom.statusMessage.className = `mt-4 text-center p-4 rounded-lg ${isError ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'}`; dom.statusMessage.classList.remove('hidden'); }
+    async function handleFiles(files) {
+        showStatus(`Processing ${files.length} file(s)...`); [dom.visualizationSection, dom.metadataSection, dom.controlsSection, dom.fileManagementSection, dom.exportButton, dom.exportCleanButton].forEach(el => el.classList.add('hidden'));
+        processedScans = []; isShowingComposite = false;
+        for (const file of files) { try { const parsedData = parseCScanFile(await file.text()); parsedData.fileName = file.name; processedScans.push(parsedData); } catch (error) { console.error(`Error processing file ${file.name}:`, error); showStatus(`Error processing ${file.name}: ${error.message}`, true); return; } }
+        if (processedScans.length > 0) {
+            currentScanData = processedScans[0]; renderPlot(currentScanData); renderMetadata(currentScanData.metadata); renderFileList(); showStatus(`${processedScans.length} file(s) processed.`);
+            dom.uploadSection.classList.add('hidden'); [dom.fileManagementSection, dom.controlsSection].forEach(el => el.classList.remove('hidden'));
+        }
+    }
+    function parseCScanFile(content) {
+        const lines = content.split(/\r?\n/); const metadata = {}; let dataStartIndex = -1;
+        for (let i = 0; i < lines.length; i++) { const line = lines[i].trim(); if (line.startsWith('mm')) { dataStartIndex = i; break; } const parts = line.split('=').map(p => p.trim()); if (parts.length === 2) { metadata[parts[0]] = isNaN(parseFloat(parts[1])) ? parts[1] : parseFloat(parts[1]); } }
+        if (dataStartIndex === -1) throw new Error('Could not find data matrix header.');
+        const xCoords = lines[dataStartIndex].split(/[\t,]/).slice(1).map(parseFloat); const yCoords = []; const tempThicknessValues = [];
+        for (let i = dataStartIndex + 1; i < lines.length; i++) { const line = lines[i].trim(); if (!line) continue; const rowValues = line.split(/[\t,]/); const yValue = parseFloat(rowValues[0]); if (isNaN(yValue)) continue; yCoords.push(yValue); tempThicknessValues.push(rowValues.slice(1).map(val => (val === 'ND' || val.trim() === '') ? NaN : parseFloat(val))); }
+        if (xCoords.length === 0 || yCoords.length === 0 || tempThicknessValues.length === 0) throw new Error('Failed to parse data matrix.');
+        const flatThicknessValues = new Float32Array(tempThicknessValues.length * xCoords.length); tempThicknessValues.forEach((row, i) => flatThicknessValues.set(row, i * xCoords.length));
+        return { metadata, x_coords: xCoords, y_coords: yCoords, thickness_values_flat: flatThicknessValues, rows: yCoords.length, cols: xCoords.length };
+    }
+    function findMinMax(data) { let min = Infinity, max = -Infinity; for (const val of data) { if (!isNaN(val)) { if (val < min) min = val; if (val > max) max = val; } } return { min: min === Infinity ? 0 : min, max: max === -Infinity ? 0 : max }; }
+    function reconstructMatrix(flatData, rows, cols) { const matrix = []; for (let i = 0; i < rows; i++) { const row = new Array(cols); for (let j = 0; j < cols; j++) { const val = flatData[i * cols + j]; row[j] = isNaN(val) ? null : val; } matrix.push(row); } return matrix; }
+    function renderPlot(data, isComposite = false) {
+        const metaMin = data.metadata['Min Thickness (mm)'], metaMax = data.metadata['Max Thickness (mm)'];
+        let matrix = (isComposite && data.compositeMatrix) ? data.compositeMatrix : reconstructMatrix(data.thickness_values_flat, data.rows, data.cols);
+        if (!isComposite && metaMin !== undefined && metaMax !== undefined) { dom.minThicknessInput.value = parseFloat(metaMin).toFixed(2); dom.maxThicknessInput.value = parseFloat(metaMax).toFixed(2); }
+        else { const { min, max } = findMinMax(data.thickness_values_flat || matrix.flat()); dom.minThicknessInput.value = min.toFixed(2); dom.maxThicknessInput.value = max.toFixed(2); }
+        updatePlot();
+    }
+    function updatePlot() {
+        if (!currentScanData) return;
+        let matrix, xCoords, yCoords;
+        if (isShowingComposite && currentScanData.compositeMatrix) { matrix = currentScanData.compositeMatrix; xCoords = currentScanData.x_coords; yCoords = currentScanData.y_coords; }
+        else if (currentScanData.thickness_values_flat) { matrix = reconstructMatrix(currentScanData.thickness_values_flat, currentScanData.rows, currentScanData.cols); xCoords = currentScanData.x_coords; yCoords = currentScanData.y_coords; } 
+        else return;
+        
+        const zmin = parseFloat(dom.minThicknessInput.value) || null, zmax = parseFloat(dom.maxThicknessInput.value) || null;
+        const plotData = [{ x: xCoords, y: yCoords, z: matrix, type: 'heatmap', colorscale: customColorscale, zsmooth: 'best', connectgaps: false, zmin, zmax, colorbar: { title: 'Thickness (mm)', titleside: 'right' }, hovertemplate: 'X: %{x:.2f} mm<br>Y: %{y:.2f} mm<br>Thickness: %{z:.2f} mm<extra></extra>' }];
+        const title = isShowingComposite ? 'Composite Corrosion Map' : 'Corrosion Heatmap';
+        const layout = { title: { text: title, font: { size: 20 } }, xaxis: { title: 'Scan Axis (mm)', scaleanchor: "y", scaleratio: 1.0 }, yaxis: { title: 'Index Axis (mm)' }, autosize: true, margin: { l: 60, r: 60, t: 60, b: 60 } };
+        if (document.documentElement.classList.contains('dark')) { layout.template = 'plotly_dark'; layout.paper_bgcolor = 'rgb(31, 41, 55)'; layout.plot_bgcolor = 'rgb(31, 41, 55)'; }
+        const config = { responsive: true, displaylogo: false };
+        Plotly.react(dom.plotContainer, plotData, layout, config);
+        dom.visualizationSection.classList.remove('hidden'); [dom.exportButton, dom.exportCleanButton].forEach(b => b.classList.remove('hidden'));
+    }
+    function renderFileList() {
+        dom.fileListContainer.innerHTML = ''; processedScans.forEach((scan) => {
+            const el = document.createElement('div'); el.className = 'p-2 mt-2 rounded cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600';
+            if (!isShowingComposite && scan === currentScanData) el.classList.add('bg-blue-100', 'dark:bg-blue-900/50', 'font-semibold');
+            el.textContent = scan.fileName; el.onclick = () => { currentScanData = scan; isShowingComposite = false; renderPlot(currentScanData); renderMetadata(currentScanData.metadata); renderFileList(); };
+            dom.fileListContainer.appendChild(el);
+        });
+    }
+    function getCompositeWorker() {
+        const workerCode = `self.onmessage = e => {
+            const scans = e.data; let gMinX=Infinity,gMaxX=-Infinity,gMinY=Infinity,gMaxY=-Infinity; scans.forEach(s => { const minX=Math.min(...s.x_coords),maxX=Math.max(...s.x_coords),minY=Math.min(...s.y_coords),maxY=Math.max(...s.y_coords); if(minX<gMinX)gMinX=minX; if(maxX>gMaxX)gMaxX=maxX; if(minY<gMinY)gMinY=minY; if(maxY>gMaxY)gMaxY=maxY; });
+            let minSp=Infinity; scans.forEach(s => { if(s.x_coords.length>1){const sp=Math.abs(s.x_coords[1]-s.x_coords[0]); if(sp>0&&sp<minSp)minSp=sp;} if(s.y_coords.length>1){const sp=Math.abs(s.y_coords[1]-s.y_coords[0]); if(sp>0&&sp<minSp)minSp=sp;} });
+            const res=minSp!==Infinity?minSp:1.0, gW=Math.ceil((gMaxX-gMinX)/res)+1, gH=Math.ceil((gMaxY-gMinY)/res)+1; const compG=new Float32Array(gH*gW).fill(0), wG=new Float32Array(gH*gW).fill(0);
+            scans.forEach((s,s_idx) => { for(let i=0;i<s.rows;i++){ for(let j=0;j<s.cols;j++){ const val=s.thickness_values_flat[i*s.cols+j]; if(!isNaN(val)&&val>0){ const x=s.x_coords[j], y=s.y_coords[i], gX=Math.round((x-gMinX)/res), gY=Math.round((y-gMinY)/res); if(gX>=0&&gX<gW&&gY>=0&&gY<gH){ const idx=gY*gW+gX; compG[idx]+=val; wG[idx]+=1; }}}} self.postMessage({type:'progress',current:s_idx+1,total:scans.length}); });
+            const mat=[], xC=Array.from({length:gW},(_,i)=>gMinX+i*res), yC=Array.from({length:gH},(_,i)=>gMinY+i*res), flatD=new Float32Array(gH*gW);
+            for(let i=0;i<gH;i++){ const row=[]; for(let j=0;j<gW;j++){ const idx=i*gW+j; let val=null; if(wG[idx]>0)val=compG[idx]/wG[idx]; row.push(val); flatD[idx]=isNaN(val)?NaN:val; } mat.push(row); }
+            self.postMessage({type:'result',matrix:mat,xCoords:xC,yCoords:yC,flatData:flatD});
+        }`;
+        return new Worker(URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' })));
+    }
+    function generateComposite() {
+        if (processedScans.length < 2) return showStatus("Please upload at least two files.", true);
+        showStatus("Generating composite..."); dom.progressContainer.classList.remove('hidden'); dom.progressBar.style.width = '0%'; dom.compositeButton.disabled = true; dom.compositeButton.textContent = "Processing...";
+        if (compositeWorker) compositeWorker.terminate(); compositeWorker = getCompositeWorker();
+        compositeWorker.onmessage = ({data}) => {
+            if (data.type === 'progress') { dom.progressBar.style.width = `${(data.current / data.total) * 100}%`; }
+            else if (data.type === 'result') {
+                const { matrix, xCoords, yCoords, flatData } = data;
+                currentScanData = { metadata: { 'Type': 'Composite', 'Source Files': processedScans.length }, compositeMatrix: matrix, x_coords: xCoords, y_coords: yCoords, thickness_values_flat: flatData, rows: yCoords.length, cols: xCoords.length, isComposite: true };
+                isShowingComposite = true; renderPlot(currentScanData, true); renderMetadata(currentScanData.metadata); renderFileList(); showStatus("Composite generated.");
+                dom.progressContainer.classList.add('hidden'); dom.compositeButton.disabled = false; dom.compositeButton.textContent = "Generate Composite";
+                compositeWorker.terminate(); compositeWorker = null;
+            }
+        };
+        compositeWorker.onerror = e => { showStatus(`Error during composite generation: ${e.message}`, true); dom.progressContainer.classList.add('hidden'); dom.compositeButton.disabled = false; dom.compositeButton.textContent = "Generate Composite"; if (compositeWorker) compositeWorker.terminate(); };
+        compositeWorker.postMessage(processedScans);
+    }
+    function exportImage() { if (!currentScanData) return; const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan.png`; Plotly.downloadImage(dom.plotContainer, { format: 'png', width: 1920, height: 1080, scale: 2, filename }); }
+    async function exportCleanImage() {
+        if (!currentScanData) return showStatus("No data to export.", true);
+        showStatus("Preparing clean export...");
+        const originalData = JSON.parse(JSON.stringify(dom.plotContainer.data)); const originalLayout = JSON.parse(JSON.stringify(dom.plotContainer.layout));
+        const cleanLayout = JSON.parse(JSON.stringify(originalLayout)); cleanLayout.title = null; if (cleanLayout.xaxis) cleanLayout.xaxis.visible = false; if (cleanLayout.yaxis) cleanLayout.yaxis.visible = false; cleanLayout.margin = { l: 0, r: 0, t: 0, b: 0 };
+        const cleanData = JSON.parse(JSON.stringify(originalData)); if (cleanData[0]) cleanData[0].showscale = false;
+        try {
+            await Plotly.react(dom.plotContainer, cleanData, cleanLayout, dom.plotContainer._context);
+            const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan-heatmap.png`;
+            await Plotly.downloadImage(dom.plotContainer, { format: 'png', width: 1920, height: 1080, scale: 1, filename });
+            showStatus("Clean heatmap exported!");
+        } catch (e) { showStatus("Failed to export clean heatmap.", true); console.error("Clean export failed:", e); } 
+        finally { await Plotly.react(dom.plotContainer, originalData, originalLayout, dom.plotContainer._context); }
+    }
+    function renderMetadata(metadata) { dom.metadataContent.innerHTML = ''; for (const key in metadata) { const div = document.createElement('div'); div.className = 'p-2 bg-white dark:bg-gray-800 rounded shadow-sm'; div.innerHTML = `<span class="font-semibold text-gray-600 dark:text-gray-400">${key}:</span> <span class="text-gray-800 dark:text-gray-200">${metadata[key]}</span>`; dom.metadataContent.appendChild(div); } dom.metadataSection.classList.remove('hidden'); }
+    function fileInputHandler(event) { if (event.target.files.length > 0) handleFiles(event.target.files); }
+    function addEventListeners() {
+        dom.uploadButton.addEventListener('click', () => dom.fileInput.click());
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(ev => dom.uploadSection.addEventListener(ev, preventDefaults, false));
+        dom.uploadSection.addEventListener('dragenter', () => dom.uploadSection.classList.add('border-blue-500'), false);
+        dom.uploadSection.addEventListener('dragleave', () => dom.uploadSection.classList.remove('border-blue-500'), false);
+        dom.uploadSection.addEventListener('drop', handleDrop, false);
+        dom.fileInput.addEventListener('change', fileInputHandler);
+        dom.updateButton.addEventListener('click', () => updatePlot());
+        dom.compositeButton.addEventListener('click', generateComposite);
+        dom.exportButton.addEventListener('click', exportImage);
+        dom.exportCleanButton.addEventListener('click', exportCleanImage);
+        document.addEventListener('themeChanged', updatePlot);
+    }
+    return {
+        init: (toolContainer) => {
+            container = toolContainer; container.innerHTML = HTML; container.classList.add('bg-gray-100', 'dark:bg-gray-900');
+            cacheDom(); addEventListeners();
+        },
+        destroy: () => {
+            if (compositeWorker) compositeWorker.terminate();
+            if (dom && dom.plotContainer) Plotly.purge(dom.plotContainer);
+            document.removeEventListener('themeChanged', updatePlot);
+            container.innerHTML = ''; container.classList.remove('bg-gray-100', 'dark:bg-gray-900');
+        }
+    };
+})();
+
+
+// #################################################################################
+//                             TOOL MODULE: TOFD Calculator
+// #################################################################################
+const toolModuleTOFD = (() => {
+    let container, dom = {}, resizeObserver;
+    const parameters = [
+        { id: 'weldType', label: 'Weld Type', type: 'select', options: ['Single V', 'Double V', 'None'], value: 'Single V' }, { id: 'thickness', label: 'Material Thickness (mm)', type: 'slider', min: 10, max: 200, step: 1, value: 52 },
+        { id: 'capWidth', label: 'Cap Width (mm)', type: 'slider', min: 1, max: 50, step: 1, value: 16 }, { id: 'velocity', label: 'Calibrated Velocity (m/s)', type: 'slider', min: 2000, max: 7000, step: 1, value: 5920 },
+        { id: 'calibTemp', label: 'Calibration Temp (°C)', type: 'slider', min: -20, max: 100, step: 1, value: 20 }, { id: 'inspTemp', label: 'Inspection Temp (°C)', type: 'slider', min: -20, max: 400, step: 1, value: 20 },
+        { id: 'pcs', label: 'Probe Separation - PCS (mm)', type: 'slider', min: 20, max: 200, step: 1, value: 74 }, { id: 'wedgeDelay', label: 'Wedge Delay (µs)', type: 'slider', min: 0, max: 10, step: 0.01, value: 2.24 },
+        { id: 'frequency', label: 'Transducer Freq (MHz)', type: 'slider', min: 1, max: 15, step: 0.1, value: 5 }, { id: 'transducerDiameter', label: 'Transducer Diameter (mm)', type: 'slider', min: 1, max: 20, step: 0.1, value: 5 },
+        { id: 'angle', label: 'Angle in Material (°)', type: 'slider', min: 30, max: 80, step: 1, value: 63 },
+    ];
+    const resultDisplayOrder = [
+        { id: 'correctedVelocity', label: 'Corrected Velocity', unit: ' m/s' }, { id: 'latWavePos', label: 'Lateral Wave Position', unit: ' µs' }, { id: 'backwallPos', label: 'Backwall Position', unit: ' µs' }, { id: 'timeRange', label: 'Time Range', unit: ' µs' },
+        { id: 'nearSurfaceDeadZone', label: 'Near-Surface Dead Zone', unit: ' mm' }, { id: 'backwallDeadZone', label: 'Backwall Dead Zone', unit: ' mm' },
+    ];
+    const HTML = `
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+        <header class="mb-8"><h1 class="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">TOFD Calculator</h1></header>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6"><h2 class="text-lg font-semibold dark:text-white pb-4 border-b dark:border-slate-700">Inspection Parameters</h2><div class="space-y-5 pt-5" id="input-container"></div></div>
+            <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+                <h2 class="text-lg font-semibold dark:text-white pb-4 border-b dark:border-slate-700">Coverage Visualization</h2>
+                <div class="bg-slate-100 dark:bg-slate-900/50 border dark:border-slate-700 rounded-md mt-4 aspect-[4/3] p-2 overflow-hidden"><canvas id="tofdCanvas"></canvas></div>
+                <div id="results" class="mt-6 text-sm font-medium border dark:border-slate-700 rounded-md"></div>
+                <div class="mt-6"><button id="analyze-btn" class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-md shadow-sm hover:bg-blue-700">Run Analysis</button></div>
+            </div>
+        </div>
+    </div>
+    <div id="analysis-modal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay fixed inset-0 bg-black/40 dark:bg-black/60" id="modal-overlay"></div>
+        <div class="modal-content bg-white dark:bg-slate-800 rounded-lg shadow-xl mx-auto mt-10 mb-10 max-w-3xl w-11/12 relative transform scale-95 max-h-[90vh] flex flex-col">
+            <div class="p-5 border-b dark:border-slate-700 flex justify-between items-center"><h3 class="text-lg font-semibold dark:text-white">Setup Analysis & Recommendations</h3><button id="close-modal-btn" class="text-slate-400 hover:text-slate-600 text-3xl leading-none">&times;</button></div>
+            <div id="modal-body" class="p-6 overflow-y-auto flex-grow"><div id="loader" class="flex justify-center items-center h-full"><div class="loader"></div></div><div id="analysis-text" class="text-sm text-slate-600 dark:text-slate-300 space-y-4"></div></div>
+        </div>
+    </div>`;
+
+    function createUI() {
+        const inputContainer = dom.inputContainer;
+        parameters.forEach(p => {
+            const wrapper = document.createElement('div'); const labelDiv = document.createElement('div'); labelDiv.className = 'flex justify-between items-center mb-1.5';
+            const label = document.createElement('label'); label.textContent = p.label; label.htmlFor = p.id; label.className = 'font-medium text-sm text-slate-700 dark:text-slate-300'; labelDiv.appendChild(label);
+            if (p.type === 'select') {
+                const select = document.createElement('select'); select.id = p.id; select.className = 'w-28 text-right bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-md p-1.5 text-sm';
+                p.options.forEach(opt => { const option = document.createElement('option'); option.value = opt; option.textContent = opt; select.appendChild(option); }); select.value = p.value;
+                labelDiv.appendChild(select); wrapper.appendChild(labelDiv); select.addEventListener('change', updateAll);
+            } else {
+                const numberInput = document.createElement('input'); numberInput.type = 'number'; numberInput.id = `num-${p.id}`; numberInput.min = p.min; numberInput.max = p.max; numberInput.step = p.step; numberInput.value = p.value; numberInput.className = 'w-24 text-right bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-md p-1 text-sm'; labelDiv.appendChild(numberInput);
+                const rangeInput = document.createElement('input'); rangeInput.type = 'range'; rangeInput.id = `range-${p.id}`; rangeInput.min = p.min; rangeInput.max = p.max; rangeInput.step = p.step; rangeInput.value = p.value; rangeInput.className = 'w-full';
+                wrapper.appendChild(labelDiv); wrapper.appendChild(rangeInput);
+                numberInput.addEventListener('input', () => { rangeInput.value = numberInput.value; updateAll(); }); rangeInput.addEventListener('input', () => { numberInput.value = rangeInput.value; updateAll(); });
+            }
+            inputContainer.appendChild(wrapper);
+        });
+        resultDisplayOrder.forEach(r => {
+            const div = document.createElement('div'); div.className = 'flex justify-between items-center p-3 border-b dark:border-slate-700 last:border-b-0';
+            const label = document.createElement('span'); label.className = 'text-slate-600 dark:text-slate-400'; label.textContent = r.label + ':';
+            const valueSpan = document.createElement('span'); valueSpan.id = r.id; valueSpan.className = 'font-semibold dark:text-white';
+            div.appendChild(label); div.appendChild(valueSpan); dom.resultsContainer.appendChild(div);
+        });
+    }
+    function cacheDom() { const q = (s) => container.querySelector(s); dom = { canvas: q('#tofdCanvas'), inputContainer: q('#input-container'), resultsContainer: q('#results'), modal: q('#analysis-modal'), modalOverlay: q('#modal-overlay'), closeModalBtn: q('#close-modal-btn'), analyzeBtn: q('#analyze-btn'), analysisTextEl: q('#analysis-text'), loader: q('#loader') }; }
+    function updateAll() { const values = getCurrentValues(); const results = calculateTOFD(values); updateUI(results); drawCoverage(values, results); }
+    function getCurrentValues() { const values = {}; parameters.forEach(p => { const el = dom.inputContainer.querySelector(p.type === 'select' ? `#${p.id}` : `#num-${p.id}`); values[p.id] = p.type === 'select' ? el.value : parseFloat(el.value) || 0; }); return values; }
+    function updateUI(results) { resultDisplayOrder.forEach(r => { const el = dom.resultsContainer.querySelector(`#${r.id}`); if (el && results[r.id] !== undefined) el.textContent = `${results[r.id].toFixed(r.unit.includes('m/s') ? 0 : 2)}${r.unit}`; });}
+    function calculateTOFD(v) {
+        const T = v.thickness; const S = v.pcs / 2; const V_cal_ms = v.velocity; const t_w = v.wedgeDelay; const freq = v.frequency; const D = v.transducerDiameter; const T_cal = v.calibTemp; const T_insp = v.inspTemp;
+        const K = 0.00054; const delta_T = T_insp - T_cal; const V_corr_ms = V_cal_ms * (1 - (K * delta_T));
+        if (V_corr_ms <= 0 || freq <= 0 || D <= 0) { return { correctedVelocity: V_corr_ms, latWavePos: 0, backwallPos: 0, timeRange: 0, nearSurfaceDeadZone: T, backwallDeadZone: T, beamSpreadAngleDegrees: 0 }; }
+        const V_mm_us = V_corr_ms / 1000; const latWavePos = (v.pcs / V_mm_us) + (2 * t_w); const backwallPath = 2 * Math.sqrt(S**2 + T**2); const backwallPos = backwallPath / V_mm_us + (2 * t_w);
+        const timeRange = backwallPos - latWavePos; const tp = 1.5 / freq; const term1_ns = (V_mm_us * tp) / 2; const nearSurfaceDeadZone = (S > 0) ? Math.sqrt(term1_ns**2 + S**2) - S : 0; const t_bw_prime = backwallPos - (2 * t_w); const t_defect_max_time = t_bw_prime - tp; let backwallDeadZone = 0;
+        if (t_defect_max_time > 0) { const term_under_sqrt = ((V_mm_us * t_defect_max_time) / 2)**2 - S**2; if (term_under_sqrt > 0) { const depth_max_detectable = Math.sqrt(term_under_sqrt); backwallDeadZone = T - depth_max_detectable; } else { backwallDeadZone = T; } } else { backwallDeadZone = T; }
+        const K_spread = 1.22; const V_corr_mms = V_corr_ms * 1000; const freq_hz = freq * 1e6; const sin_alpha = (K_spread * V_corr_mms) / (freq_hz * D); const beamSpreadAngleDegrees = Math.asin(sin_alpha) * (180 / Math.PI);
+        return { correctedVelocity: V_corr_ms, latWavePos, backwallPos, timeRange, nearSurfaceDeadZone: Math.max(0, nearSurfaceDeadZone), backwallDeadZone: Math.max(0, backwallDeadZone), beamSpreadAngleDegrees };
+    }
+    function drawCoverage(values, results) {
+        const canvas = dom.canvas; const parent = canvas.parentElement; canvas.width = parent.clientWidth; canvas.height = parent.clientHeight;
+        const w = canvas.width, h = canvas.height; const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, w, h);
+        const T = values.thickness, PCS = values.pcs, capWidth = values.capWidth;
+        const mainAngleRad = values.angle * (Math.PI / 180), spreadAngleRad = results.beamSpreadAngleDegrees * (Math.PI / 180);
+        const leftAngleRad = mainAngleRad - spreadAngleRad, rightAngleRad = mainAngleRad + spreadAngleRad;
+        const scale = Math.min(w / (PCS * 1.2), h / (T * 1.2)); const yOffset = (h - (T * scale)) / 2, xOffset = (w - (PCS * scale)) / 2;
+        const isDark = document.documentElement.classList.contains('dark');
+        ctx.fillStyle = isDark ? '#1e293b' : '#e2e8f0'; ctx.strokeStyle = isDark ? '#475569' : '#94a3b8';
+        ctx.fillRect(xOffset - (10 * scale), yOffset, PCS * scale + (20 * scale), T * scale); ctx.strokeRect(xOffset - (10 * scale), yOffset, PCS * scale + (20 * scale), T * scale);
+        ctx.strokeStyle = isDark ? 'rgba(100, 115, 135, 0.6)' : 'rgba(100, 116, 139, 0.4)'; ctx.lineWidth = 1;
+        if (values.weldType === 'Single V') { ctx.beginPath(); ctx.moveTo(w / 2 - (capWidth / 2 * scale), yOffset); ctx.lineTo(w / 2 + (capWidth / 2 * scale), yOffset); ctx.lineTo(w / 2, yOffset + T * scale); ctx.closePath(); ctx.stroke(); }
+        else if (values.weldType === 'Double V') { const midY = yOffset + (T * scale) / 2; ctx.beginPath(); ctx.moveTo(w / 2 - (capWidth / 2 * scale), yOffset); ctx.lineTo(w / 2, midY); ctx.lineTo(w / 2 + (capWidth / 2 * scale), yOffset); ctx.moveTo(w / 2 - (capWidth / 2 * scale), yOffset + T * scale); ctx.lineTo(w / 2, midY); ctx.lineTo(w / 2 + (capWidth / 2 * scale), yOffset + T * scale); ctx.stroke(); }
+        const beamEntryPointTx = xOffset, beamEntryPointRx = xOffset + PCS * scale, backwallY = yOffset + T * scale;
+        ctx.fillStyle = isDark ? 'rgba(96, 165, 250, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+        ctx.beginPath(); ctx.moveTo(beamEntryPointTx, yOffset); ctx.lineTo(beamEntryPointTx + (T * scale) * Math.tan(leftAngleRad), backwallY); ctx.lineTo(beamEntryPointTx + (T * scale) * Math.tan(rightAngleRad), backwallY); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(beamEntryPointRx, yOffset); ctx.lineTo(beamEntryPointRx - (T * scale) * Math.tan(rightAngleRad), backwallY); ctx.lineTo(beamEntryPointRx - (T * scale) * Math.tan(leftAngleRad), backwallY); ctx.closePath(); ctx.fill();
+        const probeSize = Math.max(4, 6 * scale); ctx.fillStyle = '#3b82f6';
+        ctx.fillRect(xOffset - probeSize / 2, yOffset - probeSize, probeSize, probeSize); ctx.fillRect(xOffset + PCS * scale - probeSize / 2, yOffset - probeSize, probeSize, probeSize);
+        const drawingAreaX = xOffset - (10 * scale); const drawingAreaWidth = PCS * scale + (20 * scale); const nsDeadZoneHeight = results.nearSurfaceDeadZone * scale;
+        ctx.fillStyle = isDark ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0.25)'; ctx.fillRect(drawingAreaX, yOffset, drawingAreaWidth, nsDeadZoneHeight);
+        const bwDeadZoneHeight = results.backwallDeadZone * scale; ctx.fillStyle = isDark ? 'rgba(251, 191, 36, 0.3)' : 'rgba(234, 179, 8, 0.25)'; ctx.fillRect(drawingAreaX, yOffset + T * scale - bwDeadZoneHeight, drawingAreaWidth, bwDeadZoneHeight);
+    }
+    function openModal() { dom.modal.classList.remove('hidden'); document.body.classList.add('overflow-hidden'); setTimeout(() => { dom.modalOverlay.classList.remove('opacity-0'); dom.modal.querySelector('.modal-content').classList.remove('scale-95'); dom.modal.querySelector('.modal-content').classList.add('scale-100'); }, 10); }
+    function closeModal() { dom.modalOverlay.classList.add('opacity-0'); dom.modal.querySelector('.modal-content').classList.remove('scale-100'); dom.modal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 300); }
+    function parseMarkdown(text) { let html = text.replace(/^\*\*(.*?)\*\*$/gm, '<h3 class="text-md font-semibold text-slate-900 dark:text-white mt-4 first:mt-0">$1</h3>').replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>').replace(/(\r\n|\n|\r)/gm, '<br>'); if(html.includes('<li>')) { html = '<ul class="list-disc list-inside space-y-2">' + html.replace(/<br>/g, '') + '</ul>'; } return html; }
+    async function handleAnalysis() {
+        openModal(); dom.analysisTextEl.innerHTML = ''; dom.loader.style.display = 'flex';
+        const values = getCurrentValues(); const results = calculateTOFD(values);
+        const prompt = `As an NDT Level III inspector, provide a concise and scannable analysis of the following TOFD setup. Be brief and focus on actionable points. **Setup & Results:** - Weld Type: ${values.weldType} - Near-Surface Dead Zone: ${results.nearSurfaceDeadZone.toFixed(2)} mm - Backwall Dead Zone: ${results.backwallDeadZone.toFixed(2)} mm - Probe Frequency: ${values.frequency.toFixed(1)} MHz - PCS: ${values.pcs.toFixed(1)} mm **Analysis:** (Briefly explain the practical meaning of the dead zones for this inspection.) **Recommendations:** (Provide 2-3 specific, actionable bullet points for improvement. Use unordered list markdown.)`;
+        try {
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] }; const apiKey = ""; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
+            const result = await response.json();
+            if (result.candidates?.[0]?.content?.parts?.[0]?.text) { dom.analysisTextEl.innerHTML = parseMarkdown(result.candidates[0].content.parts[0].text); } 
+            else { dom.analysisTextEl.textContent = 'Error: Could not generate analysis.'; }
+        } catch (error) { console.error("Error calling Gemini API:", error); dom.analysisTextEl.textContent = `An error occurred: ${error.message}`; } 
+        finally { dom.loader.style.display = 'none'; }
+    }
+    return {
+        init: (toolContainer) => {
+            container = toolContainer; container.innerHTML = HTML; container.classList.add('bg-slate-100', 'dark:bg-slate-900');
+            cacheDom(); createUI();
+            const debouncedUpdate = () => { window.requestAnimationFrame(updateAll); };
+            resizeObserver = new ResizeObserver(debouncedUpdate); resizeObserver.observe(dom.canvas.parentElement);
+            dom.analyzeBtn.addEventListener('click', handleAnalysis); dom.closeModalBtn.addEventListener('click', closeModal); dom.modalOverlay.addEventListener('click', closeModal);
+            document.addEventListener('themeChanged', updateAll);
+            updateAll();
+        },
+        destroy: () => {
+            if (resizeObserver) resizeObserver.disconnect();
+            document.removeEventListener('themeChanged', updateAll);
+            container.innerHTML = ''; container.classList.remove('bg-slate-100', 'dark:bg-slate-900');
+        }
+    };
+})();
+
+// #################################################################################
+//                                MAIN APPLICATION LOGIC
+// #################################################################################
+const mainApp = (() => {
+    const tools = [
+        { id: 'home', name: 'Home', description: 'A collection of powerful and easy-to-use tools for Non-Destructive Testing professionals. Select a tool to begin.', url: '#', active: true, isHome: true, icon: `<svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>` },
+        { id: 'tofd', name: 'TOFD Calculator', description: 'Calculate coverage and dead zones for Time-of-Flight Diffraction.', url: '#', active: true, module: toolModuleTOFD, icon: `<svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-6m-3 6v-3m-3 3v-6m0 0l6-6m-6 6l6 6"></path></svg>` },
+        { id: 'cscan', name: 'C-Scan Visualiser', description: 'Visualize C-Scan data from ultrasonic inspections.', url: '#', active: true, module: toolModuleCScan, icon: `<svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 0h-4m4 0l-5-5"></path></svg>` },
+        { id: '3dview', name: '3D Model Viewer', description: 'View 3D models with texture projection.', url: '#', active: true, module: toolModule3DView, icon: `<svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"></path></svg>` },
+        { id: 'phasedarray', name: 'Phased Array (Coming Soon)', description: 'Design and visualize phased array ultrasonic testing setups.', url: '#', active: false, icon: `<svg class="w-7 h-7 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>` }
+    ];
+
+    const dom = { appContainer: document.getElementById('app-container'), toolbarContent: document.getElementById('toolbar-content'), landingContent: document.getElementById('landing-content'), landingTitle: document.getElementById('landing-title'), landingDescription: document.getElementById('landing-description'), mainContent: document.getElementById('main-content'), themeToggle: document.getElementById('theme-toggle'), themeIconLight: document.getElementById('theme-icon-light'), themeIconDark: document.getElementById('theme-icon-dark'), };
+    const homeTool = tools.find(t => t.isHome);
+    let activeTool = null;
+
+    function createToolbarButton(tool) { const buttonClasses = `tool-btn relative flex items-center justify-center h-16 w-16 rounded-lg text-gray-400 transition-colors ${tool.active ? 'hover:bg-gray-700 hover:text-white cursor-pointer' : 'cursor-not-allowed'}`; return `<button id="btn-${tool.id}" data-tool-id="${tool.id}" class="${buttonClasses}" title="${tool.name}">${tool.icon}</button>`; }
+    function updateDescription(tool) { dom.landingTitle.textContent = tool.name; dom.landingDescription.textContent = tool.description; }
+    function switchTool(toolId) {
+        const toolToActivate = tools.find(t => t.id === toolId);
+        if (!toolToActivate || !toolToActivate.active) return;
+        
+        if (activeTool && activeTool.module && activeTool.module.destroy) { activeTool.module.destroy(document.getElementById(`tool-${activeTool.id}`)); }
+        
+        dom.landingContent.classList.add('hidden');
+        dom.mainContent.querySelectorAll('.tool-container').forEach(el => el.classList.add('hidden'));
+        
+        if (toolToActivate.isHome) {
+            dom.appContainer.classList.remove('tool-active'); dom.landingContent.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+            updateDescription(homeTool); activeTool = null;
+        } else {
+            dom.appContainer.classList.add('tool-active');
+            const toolContainer = document.getElementById(`tool-${toolToActivate.id}`);
+            toolContainer.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+            
+            if (toolToActivate.module && toolToActivate.module.init) { toolToActivate.module.init(toolContainer); }
+            activeTool = toolToActivate;
+        }
+        
+        dom.toolbarContent.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.toggle('bg-gray-700', btn.dataset.toolId === (activeTool?.id || 'home'));
+            btn.classList.toggle('text-white', btn.dataset.toolId === (activeTool?.id || 'home'));
+        });
+    }
+
+    function applyTheme(theme) {
+        const isDark = theme === 'dark';
+        document.documentElement.classList.toggle('dark', isDark);
+        localStorage.setItem('theme', theme);
+        dom.themeIconLight.classList.toggle('hidden', isDark);
+        dom.themeIconDark.classList.toggle('hidden', !isDark);
+        document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
+    }
+    
+    function initialize() {
+        dom.toolbarContent.innerHTML = tools.map(createToolbarButton).join('');
+        dom.themeToggle.addEventListener('click', () => { const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark'; applyTheme(newTheme); });
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        applyTheme(savedTheme);
+        
+        dom.toolbarContent.addEventListener('mouseover', (e) => { if (dom.appContainer.classList.contains('tool-active')) return; const button = e.target.closest('.tool-btn'); if (button) { const tool = tools.find(t => t.id === button.dataset.toolId); if (tool) updateDescription(tool); } });
+        dom.toolbarContent.addEventListener('mouseleave', () => { if (!dom.appContainer.classList.contains('tool-active')) updateDescription(homeTool); });
+        dom.toolbarContent.addEventListener('click', (e) => { const button = e.target.closest('.tool-btn'); if (button) { switchTool(button.dataset.toolId); } });
+        switchTool('home');
+    }
+
+    return { init: initialize };
+})();
+
+// Start the application
+document.addEventListener('DOMContentLoaded', mainApp.init);
+</script>
+</body>
+</html>
+
