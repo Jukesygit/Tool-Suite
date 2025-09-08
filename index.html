@@ -97,6 +97,7 @@
         }
         #tool-3dview .control-panel {
              background-color: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px); padding: 1rem; border-radius: 0.75rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 280px;
+             color: #1f2937; /* text-gray-800 */
         }
         #tool-3dview .panel-header { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         #tool-3dview .panel-content { margin-top: 1rem; transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out; max-height: 1000px; opacity: 1; overflow: hidden; }
@@ -397,7 +398,7 @@ const toolModule3DView = (() => {
     }
     return {
         init: async (toolContainer) => {
-            container = toolContainer; container.innerHTML = HTML; container.style.overflow = 'hidden'; document.body.style.backgroundColor = '#f0f0f0';
+            container = toolContainer; container.innerHTML = HTML; container.style.overflow = 'hidden';
             await importThree(); cacheDomElements(); doInit();
         },
         destroy: () => {
@@ -420,7 +421,7 @@ const toolModule3DView = (() => {
                     renderer.domElement.parentElement.removeChild(renderer.domElement);
                 }
             }
-            container.innerHTML = ''; container.style.overflow = 'auto'; document.body.style.backgroundColor = '';
+            container.innerHTML = ''; container.style.overflow = 'auto';
         }
     };
 })();
@@ -672,10 +673,15 @@ const toolModuleTOFD = (() => {
         const T = v.thickness; const S = v.pcs / 2; const V_cal_ms = v.velocity; const t_w = v.wedgeDelay; const freq = v.frequency; const D = v.transducerDiameter; const T_cal = v.calibTemp; const T_insp = v.inspTemp;
         const K = 0.00054; const delta_T = T_insp - T_cal; const V_corr_ms = V_cal_ms * (1 - (K * delta_T));
         if (V_corr_ms <= 0 || freq <= 0 || D <= 0) { return { correctedVelocity: V_corr_ms, latWavePos: 0, backwallPos: 0, timeRange: 0, nearSurfaceDeadZone: T, backwallDeadZone: T, beamSpreadAngleDegrees: 0 }; }
-        const V_mm_us = V_corr_ms / 1000; const latWavePos = (v.pcs / V_mm_us) + (2 * t_w); const backwallPath = 2 * Math.sqrt(S**2 + T**2); const backwallPos = backwallPath / V_mm_us + (2 * t_w);
-        const timeRange = backwallPos - latWavePos; const tp = 1.5 / freq; const term1_ns = (V_mm_us * tp) / 2; const nearSurfaceDeadZone = (S > 0) ? Math.sqrt(term1_ns**2 + S**2) - S : 0; const t_bw_prime = backwallPos - (2 * t_w); const t_defect_max_time = t_bw_prime - tp; let backwallDeadZone = 0;
-        if (t_defect_max_time > 0) { const term_under_sqrt = ((V_mm_us * t_defect_max_time) / 2)**2 - S**2; if (term_under_sqrt > 0) { const depth_max_detectable = Math.sqrt(term_under_sqrt); backwallDeadZone = T - depth_max_detectable; } else { backwallDeadZone = T; } } else { backwallDeadZone = T; }
-        const K_spread = 1.22; const V_corr_mms = V_corr_ms * 1000; const freq_hz = freq * 1e6; const sin_alpha = (K_spread * V_corr_mms) / (freq_hz * D); const beamSpreadAngleDegrees = Math.asin(sin_alpha) * (180 / Math.PI);
+        const V_mm_us = V_corr_ms / 1000;
+        const latWavePos = (v.pcs / V_mm_us) + (2 * t_w); const backwallPath = 2 * Math.sqrt(S**2 + T**2); const backwallPos = backwallPath / V_mm_us + (2 * t_w);
+        const timeRange = backwallPos - latWavePos; const tp = 1.5 / freq; const term1_ns = (V_mm_us * tp) / 2;
+        const nearSurfaceDeadZone = (S > 0) ? Math.sqrt(term1_ns**2 + S**2) - S : 0; const t_bw_prime = backwallPos - (2 * t_w); const t_defect_max_time = t_bw_prime - tp; let backwallDeadZone = 0;
+        if (t_defect_max_time > 0) { const term_under_sqrt = ((V_mm_us * t_defect_max_time) / 2)**2 - S**2;
+            if (term_under_sqrt > 0) { const depth_max_detectable = Math.sqrt(term_under_sqrt); backwallDeadZone = T - depth_max_detectable; } else { backwallDeadZone = T; }
+        } else { backwallDeadZone = T; }
+        const K_spread = 1.22; const V_corr_mms = V_corr_ms * 1000; const freq_hz = freq * 1e6; const sin_alpha = (K_spread * V_corr_mms) / (freq_hz * D);
+        const beamSpreadAngleDegrees = Math.asin(sin_alpha) * (180 / Math.PI);
         return { correctedVelocity: V_corr_ms, latWavePos, backwallPos, timeRange, nearSurfaceDeadZone: Math.max(0, nearSurfaceDeadZone), backwallDeadZone: Math.max(0, backwallDeadZone), beamSpreadAngleDegrees };
     }
     function drawCoverage(values, results) {
@@ -703,13 +709,17 @@ const toolModuleTOFD = (() => {
     }
     function openModal() { dom.modal.classList.remove('hidden'); document.body.classList.add('overflow-hidden'); setTimeout(() => { dom.modalOverlay.classList.remove('opacity-0'); dom.modal.querySelector('.modal-content').classList.remove('scale-95'); dom.modal.querySelector('.modal-content').classList.add('scale-100'); }, 10); }
     function closeModal() { dom.modalOverlay.classList.add('opacity-0'); dom.modal.querySelector('.modal-content').classList.remove('scale-100'); dom.modal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.modal.classList.add('hidden'); document.body.classList.remove('overflow-hidden'); }, 300); }
-    function parseMarkdown(text) { let html = text.replace(/^\*\*(.*?)\*\*$/gm, '<h3 class="text-md font-semibold text-slate-900 dark:text-white mt-4 first:mt-0">$1</h3>').replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>').replace(/(\r\n|\n|\r)/gm, '<br>'); if(html.includes('<li>')) { html = '<ul class="list-disc list-inside space-y-2">' + html.replace(/<br>/g, '') + '</ul>'; } return html; }
+    function parseMarkdown(text) {
+        let html = text.replace(/^\*\*(.*?)\*\*$/gm, '<h3 class="text-md font-semibold text-slate-900 dark:text-white mt-4 first:mt-0">$1</h3>').replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>').replace(/(\r\n|\n|\r)/gm, '<br>');
+        if(html.includes('<li>')) { html = '<ul class="list-disc list-inside space-y-2">' + html.replace(/<br>/g, '') + '</ul>'; } return html;
+    }
     async function handleAnalysis() {
         openModal(); dom.analysisTextEl.innerHTML = ''; dom.loader.style.display = 'flex';
         const values = getCurrentValues(); const results = calculateTOFD(values);
         const prompt = `As an NDT Level III inspector, provide a concise and scannable analysis of the following TOFD setup. Be brief and focus on actionable points. **Setup & Results:** - Weld Type: ${values.weldType} - Near-Surface Dead Zone: ${results.nearSurfaceDeadZone.toFixed(2)} mm - Backwall Dead Zone: ${results.backwallDeadZone.toFixed(2)} mm - Probe Frequency: ${values.frequency.toFixed(1)} MHz - PCS: ${values.pcs.toFixed(1)} mm **Analysis:** (Briefly explain the practical meaning of the dead zones for this inspection.) **Recommendations:** (Provide 2-3 specific, actionable bullet points for improvement. Use unordered list markdown.)`;
         try {
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] }; const apiKey = ""; const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] }; const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
             const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
             const result = await response.json();
@@ -810,4 +820,5 @@ document.addEventListener('DOMContentLoaded', mainApp.init);
 </script>
 </body>
 </html>
+
 
