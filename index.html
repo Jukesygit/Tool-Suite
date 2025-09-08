@@ -498,11 +498,47 @@ const toolModuleCScan = (() => {
     }
     function findMinMax(data) { let min = Infinity, max = -Infinity; for (const val of data) { if (!isNaN(val)) { if (val < min) min = val; if (val > max) max = val; } } return { min: min === Infinity ? 0 : min, max: max === -Infinity ? 0 : max }; }
     function reconstructMatrix(flatData, rows, cols) { const matrix = []; for (let i = 0; i < rows; i++) { const row = new Array(cols); for (let j = 0; j < cols; j++) { const val = flatData[i * cols + j]; row[j] = isNaN(val) ? null : val; } matrix.push(row); } return matrix; }
+    
+    function getStandardizedMinMax() {
+        const counts = new Map();
+        processedScans.forEach(scan => {
+            const key = `${scan.metadata['Min Thickness (mm)']}|${scan.metadata['Max Thickness (mm)']}`;
+            if (key.includes('undefined')) return;
+            counts.set(key, (counts.get(key) || 0) + 1);
+        });
+        if (counts.size === 0) return null;
+        const mostCommonKey = [...counts.entries()].reduce((a, e) => e[1] > a[1] ? e : a)[0];
+        const [min, max] = mostCommonKey.split('|').map(parseFloat);
+        return { min, max };
+    }
+
     function renderPlot(data, isComposite = false) {
-        const metaMin = data.metadata['Min Thickness (mm)'], metaMax = data.metadata['Max Thickness (mm)'];
         let matrix = (isComposite && data.compositeMatrix) ? data.compositeMatrix : reconstructMatrix(data.thickness_values_flat, data.rows, data.cols);
-        if (!isComposite && metaMin !== undefined && metaMax !== undefined) { dom.minThicknessInput.value = parseFloat(metaMin).toFixed(2); dom.maxThicknessInput.value = parseFloat(metaMax).toFixed(2); }
-        else { const { min, max } = findMinMax(data.thickness_values_flat || matrix.flat()); dom.minThicknessInput.value = min.toFixed(2); dom.maxThicknessInput.value = max.toFixed(2); }
+        
+        if (!isComposite) {
+            const metaMin = data.metadata['Min Thickness (mm)'];
+            const metaMax = data.metadata['Max Thickness (mm)'];
+            if (metaMin !== undefined && metaMax !== undefined) {
+                dom.minThicknessInput.value = parseFloat(metaMin).toFixed(2);
+                dom.maxThicknessInput.value = parseFloat(metaMax).toFixed(2);
+            } else {
+                // Fallback for single scan without metadata
+                const { min, max } = findMinMax(data.thickness_values_flat);
+                dom.minThicknessInput.value = min.toFixed(2);
+                dom.maxThicknessInput.value = max.toFixed(2);
+            }
+        } else { // isComposite
+            const stdMinMax = getStandardizedMinMax();
+            if (stdMinMax) {
+                dom.minThicknessInput.value = stdMinMax.min.toFixed(2);
+                dom.maxThicknessInput.value = stdMinMax.max.toFixed(2);
+            } else {
+                // Fallback for composite
+                const { min, max } = findMinMax(data.thickness_values_flat || matrix.flat());
+                dom.minThicknessInput.value = min.toFixed(2);
+                dom.maxThicknessInput.value = max.toFixed(2);
+            }
+        }
         updatePlot();
     }
     function updatePlot() {
@@ -820,6 +856,7 @@ document.addEventListener('DOMContentLoaded', mainApp.init);
 </script>
 </body>
 </html>
+
 
 
 
