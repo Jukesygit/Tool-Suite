@@ -751,21 +751,55 @@ const toolModuleTOFD = (() => {
         let html = text.replace(/^\*\*(.*?)\*\*$/gm, '<h3 class="text-md font-semibold text-slate-900 dark:text-white mt-4 first:mt-0">$1</h3>').replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>').replace(/(\r\n|\n|\r)/gm, '<br>');
         if(html.includes('<li>')) { html = '<ul class="list-disc list-inside space-y-2">' + html.replace(/<br>/g, '') + '</ul>'; } return html;
     }
-    async function handleAnalysis() {
-        openModal(); dom.analysisTextEl.innerHTML = ''; dom.loader.style.display = 'flex';
-        const values = getCurrentValues(); const results = calculateTOFD(values);
-        const prompt = `As an NDT Level III inspector, provide a concise and scannable analysis of the following TOFD setup. Be brief and focus on actionable points. **Setup & Results:** - Weld Type: ${values.weldType} - Near-Surface Dead Zone: ${results.nearSurfaceDeadZone.toFixed(2)} mm - Backwall Dead Zone: ${results.backwallDeadZone.toFixed(2)} mm - Probe Frequency: ${values.frequency.toFixed(1)} MHz - PCS: ${values.pcs.toFixed(1)} mm **Analysis:** (Briefly explain the practical meaning of the dead zones for this inspection.) **Recommendations:** (Provide 2-3 specific, actionable bullet points for improvement. Use unordered list markdown.)`;
+    async function exportCleanImage() {
+        if (!currentScanData) return showStatus("No data to export.", true);
+        showStatus("Preparing clean export...");
+        
+        // Create a temporary div for export
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.width = '1920px';
+        tempDiv.style.height = '1080px';
+        document.body.appendChild(tempDiv);
+        
         try {
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!response.ok) throw new Error(`API request failed with status ${response.status}`);
-            const result = await response.json();
-            if (result.candidates?.[0]?.content?.parts?.[0]?.text) { dom.analysisTextEl.innerHTML = parseMarkdown(result.candidates[0].content.parts[0].text); } 
-            else { dom.analysisTextEl.textContent = 'Error: Could not generate analysis.'; }
-        } catch (error) { console.error("Error calling Gemini API:", error); dom.analysisTextEl.textContent = `An error occurred: ${error.message}`; } 
-        finally { dom.loader.style.display = 'none'; }
+            // Prepare clean data and layout
+            const cleanData = JSON.parse(JSON.stringify(dom.plotContainer.data));
+            if (cleanData[0]) cleanData[0].showscale = false;
+            
+            const cleanLayout = {
+                xaxis: { visible: false },
+                yaxis: { visible: false },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                showlegend: false
+            };
+            
+            // Create plot in temporary div
+            await Plotly.newPlot(tempDiv, cleanData, cleanLayout, { displayModeBar: false });
+            
+            // Download as SVG for true transparency support
+            const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan-heatmap`;
+            await Plotly.downloadImage(tempDiv, { 
+                format: 'svg',  // SVG preserves transparency
+                width: 1920, 
+                height: 1080, 
+                filename 
+            });
+            
+            showStatus("Clean heatmap exported as SVG with transparent background!");
+        } catch (e) { 
+            showStatus("Failed to export clean heatmap.", true); 
+            console.error("Clean export failed:", e); 
+        } finally {
+            // Clean up temp div
+            if (tempDiv.parentNode) {
+                Plotly.purge(tempDiv);
+                document.body.removeChild(tempDiv);
+            }
+        }
     }
     return {
         init: (toolContainer) => {
@@ -1177,4 +1211,5 @@ document.addEventListener('DOMContentLoaded', mainApp.init);
 </script>
 </body>
 </html>
+
 
