@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NDT Tool Suite</title>
 
-    <!-- Dependencies -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
     <script>
@@ -23,10 +22,8 @@
         }
     </script>
 
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Consolidated Styles -->
     <style>
         /* Base & Main App Styles */
         body {
@@ -119,12 +116,11 @@
     <div id="app-container">
         <header id="toolbar" class="bg-gray-900 flex-shrink-0 flex items-center justify-center z-20 relative">
             <nav id="toolbar-content" class="flex items-center justify-center gap-4">
-                <!-- Tool icons will be generated here -->
-            </nav>
+                </nav>
              <button id="theme-toggle" class="absolute top-4 right-4 p-2 rounded-full bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors">
-                <svg id="theme-icon-light" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            </button>
+                 <svg id="theme-icon-light" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                 <svg id="theme-icon-dark" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+             </button>
         </header>
 
         <main id="main-content" class="flex-grow flex flex-col items-center justify-center relative bg-gray-800" style="min-height: 0;">
@@ -144,7 +140,7 @@
 
 <script type="module">
 // #################################################################################
-//                              TOOL MODULE: 3D Viewer
+//                                 TOOL MODULE: 3D Viewer
 // #################################################################################
 const toolModule3DView = (() => {
     let container, scene, camera, renderer, orbitControls, transformControls, model, decalMaterial, directionalLight;
@@ -169,19 +165,19 @@ const toolModule3DView = (() => {
             </div>
             <div id="controls-wrapper" class="hidden">
                  <div class="control-panel">
-                     <div class="panel-header" data-target="gizmo-content"><h3 class="font-bold text-lg">Gizmo Mode</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
-                    <div id="gizmo-content" class="panel-content flex gap-2">
-                        <button id="translate-btn" class="mode-btn active">Translate</button>
-                        <button id="rotate-btn" class="mode-btn">Rotate</button>
-                    </div>
-                </div>
+                      <div class="panel-header" data-target="gizmo-content"><h3 class="font-bold text-lg">Gizmo Mode</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
+                     <div id="gizmo-content" class="panel-content flex gap-2">
+                          <button id="translate-btn" class="mode-btn active">Translate</button>
+                          <button id="rotate-btn" class="mode-btn">Rotate</button>
+                     </div>
+                 </div>
                 <div class="control-panel">
                      <div class="panel-header" data-target="lighting-content"><h3 class="font-bold text-lg">Lighting Controls</h3><svg class="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></div>
                     <div id="lighting-content" class="panel-content">
-                        <div><label for="light-intensity">Brightness</label><input type="range" id="light-intensity" min="0" max="3" step="0.1" value="1.5"></div>
-                        <div class="mt-2"><label for="light-azimuth">Azimuth</label><input type="range" id="light-azimuth" min="0" max="360" step="1" value="45"></div>
-                        <div class="mt-2"><label for="light-elevation">Elevation</label><input type="range" id="light-elevation" min="0" max="180" step="1" value="45"></div>
-                        <div class="mt-2"><label for="light-distance">Distance</label><input type="range" id="light-distance" min="20" max="500" step="1" value="500"></div>
+                         <div><label for="light-intensity">Brightness</label><input type="range" id="light-intensity" min="0" max="3" step="0.1" value="1.5"></div>
+                         <div class="mt-2"><label for="light-azimuth">Azimuth</label><input type="range" id="light-azimuth" min="0" max="360" step="1" value="45"></div>
+                         <div class="mt-2"><label for="light-elevation">Elevation</label><input type="range" id="light-elevation" min="0" max="180" step="1" value="45"></div>
+                         <div class="mt-2"><label for="light-distance">Distance</label><input type="range" id="light-distance" min="20" max="500" step="1" value="500"></div>
                     </div>
                 </div>
                 <div class="control-panel">
@@ -430,7 +426,7 @@ const toolModule3DView = (() => {
 
 
 // #################################################################################
-//                            TOOL MODULE: C-Scan Visualizer
+//                             TOOL MODULE: C-Scan Visualizer
 // #################################################################################
 const toolModuleCScan = (() => {
     let container, dom = {}, processedScans = [], currentScanData = null, compositeWorker = null, isShowingComposite = false;
@@ -597,20 +593,91 @@ const toolModuleCScan = (() => {
         compositeWorker.postMessage(processedScans);
     }
     function exportImage() { if (!currentScanData) return; const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan.png`; Plotly.downloadImage(dom.plotContainer, { format: 'png', width: 1920, height: 1080, scale: 2, filename }); }
-    async function exportCleanImage() {
+    
+    // #############################################################
+    // ###         START OF NEW AND UPDATED FUNCTIONS            ###
+    // #############################################################
+    async function exportCleanImageAsPNG() {
         if (!currentScanData) return showStatus("No data to export.", true);
-        showStatus("Preparing clean export...");
-        const originalData = JSON.parse(JSON.stringify(dom.plotContainer.data)); const originalLayout = JSON.parse(JSON.stringify(dom.plotContainer.layout));
-        const cleanLayout = JSON.parse(JSON.stringify(originalLayout)); cleanLayout.title = null; if (cleanLayout.xaxis) cleanLayout.xaxis.visible = false; if (cleanLayout.yaxis) cleanLayout.yaxis.visible = false; cleanLayout.margin = { l: 0, r: 0, t: 0, b: 0 };
-        const cleanData = JSON.parse(JSON.stringify(originalData)); if (cleanData[0]) cleanData[0].showscale = false;
+        showStatus("Preparing clean PNG export...");
+
+        // Use a temporary off-screen div to generate the initial SVG
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.width = '1920px';
+        tempDiv.style.height = '1080px';
+        document.body.appendChild(tempDiv);
+
         try {
-            await Plotly.react(dom.plotContainer, cleanData, cleanLayout, dom.plotContainer._context);
+            // 1. Prepare the same clean data and transparent layout as before
+            const cleanData = JSON.parse(JSON.stringify(dom.plotContainer.data));
+            if (cleanData[0]) cleanData[0].showscale = false;
+            
+            const cleanLayout = {
+                xaxis: { visible: false },
+                yaxis: { visible: false },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                margin: { l: 0, r: 0, t: 0, b: 0 },
+                showlegend: false
+            };
+            
+            await Plotly.newPlot(tempDiv, cleanData, cleanLayout, { displayModeBar: false });
+
+            // 2. Get the clean plot as an SVG data URL (instead of downloading)
+            const svgDataUrl = await Plotly.toImage(tempDiv, {
+                format: 'svg',
+                width: 1920,
+                height: 1080
+            });
+
+            // 3. Convert the SVG to a PNG using a canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 1080;
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+
+            // This Promise waits for the image to be fully loaded before drawing
+            await new Promise((resolve, reject) => {
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve();
+                };
+                img.onerror = reject;
+                img.src = svgDataUrl; // Set the source to our SVG data
+            });
+
+            // 4. Get the final PNG data from the canvas
+            const pngDataUrl = canvas.toDataURL('image/png');
+
+            // 5. Trigger the download for the user
+            const link = document.createElement('a');
             const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan-heatmap.png`;
-            await Plotly.downloadImage(dom.plotContainer, { format: 'png', width: 1920, height: 1080, scale: 1, filename });
-            showStatus("Clean heatmap exported!");
-        } catch (e) { showStatus("Failed to export clean heatmap.", true); console.error("Clean export failed:", e); } 
-        finally { await Plotly.react(dom.plotContainer, originalData, originalLayout, dom.plotContainer._context); }
+            link.href = pngDataUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showStatus("Clean heatmap exported as PNG with transparent background!");
+
+        } catch (e) { 
+            showStatus("Failed to export clean PNG.", true); 
+            console.error("Clean PNG export failed:", e); 
+        } finally {
+            // Clean up the temporary div
+            if (tempDiv.parentNode) {
+                Plotly.purge(tempDiv);
+                document.body.removeChild(tempDiv);
+            }
+        }
     }
+    // #############################################################
+    // ###          END OF NEW AND UPDATED FUNCTIONS             ###
+    // #############################################################
+
     function renderMetadata(metadata) { dom.metadataContent.innerHTML = ''; for (const key in metadata) { const div = document.createElement('div'); div.className = 'p-2 bg-white dark:bg-gray-800 rounded shadow-sm'; div.innerHTML = `<span class="font-semibold text-gray-600 dark:text-gray-400">${key}:</span> <span class="text-gray-800 dark:text-gray-200">${metadata[key]}</span>`; dom.metadataContent.appendChild(div); } dom.metadataSection.classList.remove('hidden'); }
     function fileInputHandler(event) { if (event.target.files.length > 0) handleFiles(event.target.files); }
     function addEventListeners() {
@@ -623,7 +690,7 @@ const toolModuleCScan = (() => {
         dom.updateButton.addEventListener('click', () => updatePlot());
         dom.compositeButton.addEventListener('click', generateComposite);
         dom.exportButton.addEventListener('click', exportImage);
-        dom.exportCleanButton.addEventListener('click', exportCleanImage);
+        dom.exportCleanButton.addEventListener('click', exportCleanImageAsPNG); // <-- UPDATED THIS LINE
         document.addEventListener('themeChanged', updatePlot);
     }
     return {
@@ -751,54 +818,51 @@ const toolModuleTOFD = (() => {
         let html = text.replace(/^\*\*(.*?)\*\*$/gm, '<h3 class="text-md font-semibold text-slate-900 dark:text-white mt-4 first:mt-0">$1</h3>').replace(/^- (.*?)$/gm, '<li class="ml-4">$1</li>').replace(/(\r\n|\n|\r)/gm, '<br>');
         if(html.includes('<li>')) { html = '<ul class="list-disc list-inside space-y-2">' + html.replace(/<br>/g, '') + '</ul>'; } return html;
     }
-    async function exportCleanImage() {
-        if (!currentScanData) return showStatus("No data to export.", true);
-        showStatus("Preparing clean export...");
-        
-        // Create a temporary div for export
-        const tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.width = '1920px';
-        tempDiv.style.height = '1080px';
-        document.body.appendChild(tempDiv);
-        
+    async function handleAnalysis() {
+        openModal(); dom.loader.style.display = 'flex'; dom.analysisTextEl.style.display = 'none';
         try {
-            // Prepare clean data and layout
-            const cleanData = JSON.parse(JSON.stringify(dom.plotContainer.data));
-            if (cleanData[0]) cleanData[0].showscale = false;
+            const values = getCurrentValues(); const results = calculateTOFD(values);
+            const prompt = `Based on the following TOFD setup, provide a concise analysis and practical recommendations. Focus on coverage, dead zones, and potential issues.
+            **Input Parameters:**
+            - Material Thickness: ${values.thickness} mm
+            - PCS: ${values.pcs} mm
+            - Angle: ${values.angle} degrees
+            - Frequency: ${values.frequency} MHz
+            - Transducer Diameter: ${values.transducerDiameter} mm
+            **Calculated Results:**
+            - Near-Surface Dead Zone: ${results.nearSurfaceDeadZone.toFixed(2)} mm
+            - Backwall Dead Zone: ${results.backwallDeadZone.toFixed(2)} mm
+            - Beam Spread: ${results.beamSpreadAngleDegrees.toFixed(2)} degrees
+            **Instructions:**
+            1.  Start with a one-sentence summary of the setup's effectiveness.
+            2.  Create a "Coverage Analysis" section. Discuss if the weld is adequately covered, considering the beam spread and PCS.
+            3.  Create a "Dead Zones" section. Comment on the size of the near-surface and backwall dead zones and their implications.
+            4.  Create a "Recommendations" section. Suggest specific adjustments (e.g., "Increase PCS to...", "Consider a lower/higher frequency probe...") to improve the setup. Provide reasoning for each recommendation.
+            Use simple markdown with **bold headings** and - for bullet points.`;
+
+            // This section would typically make an API call to a generative model.
+            // For this example, we'll simulate a delayed response.
+            await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
             
-            const cleanLayout = {
-                xaxis: { visible: false },
-                yaxis: { visible: false },
-                paper_bgcolor: 'rgba(0,0,0,0)',
-                plot_bgcolor: 'rgba(0,0,0,0)',
-                margin: { l: 0, r: 0, t: 0, b: 0 },
-                showlegend: false
-            };
+            // Simulated response for demonstration
+            let analysisResponse = `This setup provides reasonable coverage but has notable dead zones that could be optimized.
+            **Coverage Analysis**
+            - With a PCS of ${values.pcs} mm and a thickness of ${values.thickness} mm, the primary beam intersection appears well-placed for mid-wall inspection.
+            - The beam spread of ${results.beamSpreadAngleDegrees.toFixed(2)} degrees provides some additional coverage, which is beneficial for detecting off-axis flaws or flaws near the weld root and cap.
+            **Dead Zones**
+            - The near-surface dead zone of ${results.nearSurfaceDeadZone.toFixed(2)} mm is significant. It could potentially mask flaws in the weld cap or immediate subsurface.
+            - The backwall dead zone of ${results.backwallDeadZone.toFixed(2)} mm is also a concern, as it limits the ability to detect root flaws.
+            **Recommendations**
+            - To reduce the near-surface dead zone, consider using a higher frequency probe (e.g., 7.5 MHz or 10 MHz) to shorten the pulse length.
+            - To improve root coverage, you could slightly increase the PCS. This pushes the intersection point of the backwall reflection further from the center, reducing the dead zone.
+            - If cap inspection is critical, a separate near-surface inspection technique (like Phased Array) should be performed in conjunction with this TOFD setup.`;
             
-            // Create plot in temporary div
-            await Plotly.newPlot(tempDiv, cleanData, cleanLayout, { displayModeBar: false });
-            
-            // Download as SVG for true transparency support
-            const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan-heatmap`;
-            await Plotly.downloadImage(tempDiv, { 
-                format: 'svg',  // SVG preserves transparency
-                width: 1920, 
-                height: 1080, 
-                filename 
-            });
-            
-            showStatus("Clean heatmap exported as SVG with transparent background!");
-        } catch (e) { 
-            showStatus("Failed to export clean heatmap.", true); 
-            console.error("Clean export failed:", e); 
+            dom.analysisTextEl.innerHTML = parseMarkdown(analysisResponse);
+        } catch (error) {
+            dom.analysisTextEl.innerHTML = '<p class="text-red-500">Error fetching analysis. Please try again later.</p>';
+            console.error('Analysis failed:', error);
         } finally {
-            // Clean up temp div
-            if (tempDiv.parentNode) {
-                Plotly.purge(tempDiv);
-                document.body.removeChild(tempDiv);
-            }
+            dom.loader.style.display = 'none'; dom.analysisTextEl.style.display = 'block';
         }
     }
     return {
@@ -820,7 +884,7 @@ const toolModuleTOFD = (() => {
 })();
 
 // #################################################################################
-//                            TOOL MODULE: PEC Visualizer
+//                             TOOL MODULE: PEC Visualizer
 // #################################################################################
 const toolModulePEC = (() => {
     let container, dom = {}, heatmapData = null, customColorRange = { min: null, max: null };
@@ -887,21 +951,21 @@ const toolModulePEC = (() => {
         </div>
     </div>
     <style>
-      #tool-pec .control-group { display: flex; flex-direction: column; gap: 0.25rem; }
-      #tool-pec .label { color: #4b5563; font-weight: 500; font-size: 0.875rem; }
-      html.dark #tool-pec .label { color: #d1d5db; }
-      #tool-pec .input-field { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #d1d5db; background-color: #fff; }
-      html.dark #tool-pec .input-field { border-color: #4b5563; background-color: #374151; color: #f3f4f6; }
-      #tool-pec .btn-primary { padding: 0.5rem 1rem; background-color: #2563eb; color: white; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; }
-      #tool-pec .btn-primary:hover { background-color: #1d4ed8; }
-      #tool-pec .btn-secondary { padding: 0.5rem 1rem; background-color: #4b5563; color: white; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; }
-      #tool-pec .btn-secondary:hover { background-color: #374151; }
-      #tool-pec .message.success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 0.75rem; border-radius: 0.375rem; }
-      #tool-pec .message.error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 0.75rem; border-radius: 0.375rem; }
-      #tool-pec .stat-value { font-size: 1.25rem; font-weight: bold; color: #2563eb; }
-      html.dark #tool-pec .stat-value { color: #60a5fa; }
-      #tool-pec .stat-label { color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem; }
-      html.dark #tool-pec .stat-label { color: #9ca3af; }
+        #tool-pec .control-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        #tool-pec .label { color: #4b5563; font-weight: 500; font-size: 0.875rem; }
+        html.dark #tool-pec .label { color: #d1d5db; }
+        #tool-pec .input-field { width: 100%; padding: 0.5rem; border-radius: 0.375rem; border: 1px solid #d1d5db; background-color: #fff; }
+        html.dark #tool-pec .input-field { border-color: #4b5563; background-color: #374151; color: #f3f4f6; }
+        #tool-pec .btn-primary { padding: 0.5rem 1rem; background-color: #2563eb; color: white; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; }
+        #tool-pec .btn-primary:hover { background-color: #1d4ed8; }
+        #tool-pec .btn-secondary { padding: 0.5rem 1rem; background-color: #4b5563; color: white; border-radius: 0.375rem; font-weight: 600; transition: background-color 0.2s; }
+        #tool-pec .btn-secondary:hover { background-color: #374151; }
+        #tool-pec .message.success { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; padding: 0.75rem; border-radius: 0.375rem; }
+        #tool-pec .message.error { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; padding: 0.75rem; border-radius: 0.375rem; }
+        #tool-pec .stat-value { font-size: 1.25rem; font-weight: bold; color: #2563eb; }
+        html.dark #tool-pec .stat-value { color: #60a5fa; }
+        #tool-pec .stat-label { color: #6b7280; font-size: 0.75rem; margin-top: 0.25rem; }
+        html.dark #tool-pec .stat-label { color: #9ca3af; }
     </style>
     `;
 
@@ -1137,7 +1201,7 @@ const toolModulePEC = (() => {
 
 
 // #################################################################################
-//                                MAIN APPLICATION LOGIC
+//                                 MAIN APPLICATION LOGIC
 // #################################################################################
 const mainApp = (() => {
     const tools = [
@@ -1211,5 +1275,3 @@ document.addEventListener('DOMContentLoaded', mainApp.init);
 </script>
 </body>
 </html>
-
-
