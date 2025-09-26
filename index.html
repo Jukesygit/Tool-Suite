@@ -601,7 +601,6 @@ const toolModuleCScan = (() => {
         if (!currentScanData) return showStatus("No data to export.", true);
         showStatus("Preparing clean PNG export...");
 
-        // Use a temporary off-screen div to generate the initial SVG
         const tempDiv = document.createElement('div');
         tempDiv.style.position = 'absolute';
         tempDiv.style.left = '-9999px';
@@ -610,13 +609,20 @@ const toolModuleCScan = (() => {
         document.body.appendChild(tempDiv);
 
         try {
-            // 1. Prepare the same clean data and transparent layout as before
             const cleanData = JSON.parse(JSON.stringify(dom.plotContainer.data));
             if (cleanData[0]) cleanData[0].showscale = false;
             
+            // ### FIX IS HERE ###
+            // The layout now includes the scaleanchor and scaleratio to prevent warping.
             const cleanLayout = {
-                xaxis: { visible: false },
-                yaxis: { visible: false },
+                xaxis: {
+                    visible: false,
+                    scaleanchor: 'y', // <-- Keep aspect ratio
+                    scaleratio: 1.0     // <-- Keep aspect ratio
+                },
+                yaxis: {
+                    visible: false
+                },
                 paper_bgcolor: 'rgba(0,0,0,0)',
                 plot_bgcolor: 'rgba(0,0,0,0)',
                 margin: { l: 0, r: 0, t: 0, b: 0 },
@@ -625,34 +631,29 @@ const toolModuleCScan = (() => {
             
             await Plotly.newPlot(tempDiv, cleanData, cleanLayout, { displayModeBar: false });
 
-            // 2. Get the clean plot as an SVG data URL (instead of downloading)
             const svgDataUrl = await Plotly.toImage(tempDiv, {
                 format: 'svg',
                 width: 1920,
                 height: 1080
             });
 
-            // 3. Convert the SVG to a PNG using a canvas
             const canvas = document.createElement('canvas');
             canvas.width = 1920;
             canvas.height = 1080;
             const ctx = canvas.getContext('2d');
             const img = new Image();
 
-            // This Promise waits for the image to be fully loaded before drawing
             await new Promise((resolve, reject) => {
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     resolve();
                 };
                 img.onerror = reject;
-                img.src = svgDataUrl; // Set the source to our SVG data
+                img.src = svgDataUrl;
             });
 
-            // 4. Get the final PNG data from the canvas
             const pngDataUrl = canvas.toDataURL('image/png');
 
-            // 5. Trigger the download for the user
             const link = document.createElement('a');
             const filename = (isShowingComposite ? 'composite' : currentScanData.fileName.split('.')[0]) + `_cscan-heatmap.png`;
             link.href = pngDataUrl;
@@ -667,7 +668,6 @@ const toolModuleCScan = (() => {
             showStatus("Failed to export clean PNG.", true); 
             console.error("Clean PNG export failed:", e); 
         } finally {
-            // Clean up the temporary div
             if (tempDiv.parentNode) {
                 Plotly.purge(tempDiv);
                 document.body.removeChild(tempDiv);
@@ -1275,3 +1275,4 @@ document.addEventListener('DOMContentLoaded', mainApp.init);
 </script>
 </body>
 </html>
+
